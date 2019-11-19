@@ -1,0 +1,13 @@
+/bin
+/exe
+/units
+/backup
+*.bak
+*.dof
+*.dsk
+*.exe
+*.dll
+*.so
+@build*.bat
+*.tlb
+*.pyc
