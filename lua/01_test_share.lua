@@ -40,4 +40,9 @@ function main()
     ns["test3"] = {["key"] = "value", 1, 2, 3, 4, {5, 6, 7}}
     local tmp3 = ns["test3"]
     message("ns:" .. ns["__namespace"] .. " tmp3:" .. serializeTable(tmp3), 1)
+
+    sh["test2"] = "test2"
+    sh["test3"] = "test3"
+    message("DeepCopy:" .. serializeTable(sh:DeepCopy()), 1)
+
 end

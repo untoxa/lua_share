@@ -15,12 +15,13 @@ const lua_supported_libs : array[0..1] of pAnsiChar = ('Lua5.1.dll', 'qlua.dll')
 
 type  tLuaShare          = class(TLuaClass)
       private
-        procedure   deepcopy(sour, dest: TLuaState);
-        procedure   deepcopyvalue(sour, dest: TLuaState; avalueindex: integer);
+        procedure   __deepcopy(sour, dest: TLuaState);
+        procedure   __deepcopyvalue(sour, dest: TLuaState; avalueindex: integer);
       public
         function    __index(AContext: TLuaContext): integer;
         function    __newindex(AContext: TLuaContext): integer;
 
+        function    DeepCopy(AContext: TLuaContext): integer;
         function    GetNameSpace(AContext: TLuaContext): integer;
 
         function    selfregister(ALuaState: TLuaState; ANameSpace: pAnsiChar): integer;
@@ -37,7 +38,7 @@ const lua_storage_state  : TLuaState = nil;
 
 { tLuaShare }
 
-procedure tLuaShare.deepcopy(sour, dest: TLuaState);
+procedure tLuaShare.__deepcopy(sour, dest: TLuaState);
 var len : cardinal;
 begin
   case lua_type(sour, -1) of
@@ -48,8 +49,8 @@ begin
                      lua_newtable(dest);
                      lua_pushnil(sour);
                      while (lua_next(sour, -2) <> 0) do begin
-                       deepcopyvalue(sour, dest, -2);
-                       deepcopyvalue(sour, dest, -1);
+                       __deepcopyvalue(sour, dest, -2);
+                       __deepcopyvalue(sour, dest, -1);
                        lua_settable(dest, -3);
                        lua_pop(sour, 1);
                      end;
@@ -58,10 +59,10 @@ begin
   end;
 end;
 
-procedure tLuaShare.deepcopyvalue(sour, dest: TLuaState; avalueindex: integer);
+procedure tLuaShare.__deepcopyvalue(sour, dest: TLuaState; avalueindex: integer);
 begin
   lua_pushvalue(sour, avalueindex);
-  deepcopy(sour, dest);
+  __deepcopy(sour, dest);
   lua_pop(sour, 1);
 end;
 
@@ -76,9 +77,9 @@ begin
         namespace_name:= Stack[1].AsTable[namespace_item].AsString(datatable_name);
         lua_getglobal(lua_storage_state, pAnsiChar(namespace_name));
         if (lua_type(lua_storage_state, -1) = LUA_TTABLE) then begin
-          deepcopyvalue(CurrentState, lua_storage_state, 2);
+          __deepcopyvalue(CurrentState, lua_storage_state, 2);
           lua_gettable(lua_storage_state, -2);
-          deepcopy(lua_storage_state, CurrentState);
+          __deepcopy(lua_storage_state, CurrentState);
         end else lua_pushnil(CurrentState);
         lua_pop(lua_storage_state, 2);
         result:= 1;
@@ -102,14 +103,33 @@ begin
           lua_pushvalue(lua_storage_state, -1);
           lua_setglobal(lua_storage_state, pAnsiChar(namespace_name));
         end;
-        deepcopyvalue(CurrentState, lua_storage_state, 2);
-        deepcopyvalue(CurrentState, lua_storage_state, 3);
+        __deepcopyvalue(CurrentState, lua_storage_state, 2);
+        __deepcopyvalue(CurrentState, lua_storage_state, 3);
         lua_settable(lua_storage_state, -3);
         lua_pop(lua_storage_state, 1); // pop table
       end;
     finally LeaveCriticalSection(lua_lock); end;
   end;
   result:= 0;
+end;
+
+function tLuaShare.DeepCopy(AContext: TLuaContext): integer;
+var namespace_name : ansistring;
+begin
+  result:= 0;
+  if assigned(lua_storage_state) then begin
+    EnterCriticalSection(lua_lock);
+    try
+      with AContext do begin
+        namespace_name:= Stack[1].AsTable[namespace_item].AsString(datatable_name);
+        lua_getglobal(lua_storage_state, pAnsiChar(namespace_name));
+        if (lua_type(lua_storage_state, -1) = LUA_TTABLE) then __deepcopy(lua_storage_state, CurrentState)
+                                                          else lua_pushnil(CurrentState);
+        lua_pop(lua_storage_state, 1);
+        result:= 1;
+      end;
+    finally LeaveCriticalSection(lua_lock); end;
+  end;
 end;
 
 function tLuaShare.GetNameSpace(AContext: TLuaContext): integer;
@@ -122,6 +142,9 @@ function tLuaShare.selfregister(ALuaState: TLuaState; ANameSpace: pAnsiChar): in
 begin
   // create result table
   lua_newtable(ALuaState); // result table
+    lua_pushstring(ALuaState, 'DeepCopy');
+    PushMethod(ALuaState, DeepCopy);
+  lua_settable(ALuaState, -3);
     lua_pushstring(ALuaState, 'GetNameSpace');
     PushMethod(ALuaState, GetNameSpace);
   lua_settable(ALuaState, -3);
