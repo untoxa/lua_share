@@ -9,7 +9,10 @@ uses  windows, classes, sysutils, math,
 
 const package_name       = 'share';
       datatable_name     = '__default_namespace';
+      metatable_name     = '__default_namespace_metatable';
       namespace_item     = '__namespace';
+      data_item          = '__data';
+      bootstrap_name     = 'lua_share_boot.lua';
 
 const lua_supported_libs : array[0..1] of pAnsiChar = ('Lua5.1.dll', 'qlua.dll');
 
@@ -23,6 +26,8 @@ type  tLuaShare          = class(TLuaClass)
 
         function    DeepCopy(AContext: TLuaContext): integer;
         function    GetNameSpace(AContext: TLuaContext): integer;
+
+        function    ShowMessageBox(AContext: TLuaContext): integer;
 
         function    selfregister(ALuaState: TLuaState; ANameSpace: pAnsiChar): integer;
       end;
@@ -70,7 +75,7 @@ function tLuaShare.__index(AContext: TLuaContext): integer;
 var namespace_name : ansistring;
 begin
   result:= 0;
-  if assigned(lua_storage_state) then begin
+  if assigned(lua_storage_state) then try
     EnterCriticalSection(lua_lock);
     try
       with AContext do begin
@@ -85,13 +90,13 @@ begin
         result:= 1;
       end;
     finally LeaveCriticalSection(lua_lock); end;
-  end;
+  except on e: exception do messagebox(0, pAnsiChar(e.message), 'ERROR', 0); end;
 end;
 
 function tLuaShare.__newindex(AContext: TLuaContext): integer;
 var namespace_name : ansistring;
 begin
-  if assigned(lua_storage_state) then begin
+  if assigned(lua_storage_state) then try
     EnterCriticalSection(lua_lock);
     try
       with AContext do begin
@@ -100,16 +105,23 @@ begin
         if (lua_type(lua_storage_state, -1) <> LUA_TTABLE) then begin // create table if not exist
           lua_pop(lua_storage_state, 1);
           lua_newtable(lua_storage_state);
+          lua_getglobal(lua_storage_state, metatable_name);           // if we have a metatable defined in bootstrap
+          if (lua_type(lua_storage_state, -1) = LUA_TTABLE) then begin
+            lua_pushstring(lua_storage_state, data_item);             // create a __data container for data
+            lua_newtable(lua_storage_state);
+            lua_settable(lua_storage_state, -4);
+            lua_setmetatable(lua_storage_state, -2);                  // set this metatable
+          end else lua_pop(lua_storage_state, 1);
           lua_pushvalue(lua_storage_state, -1);
           lua_setglobal(lua_storage_state, pAnsiChar(namespace_name));
         end;
         __deepcopyvalue(CurrentState, lua_storage_state, 2);
         __deepcopyvalue(CurrentState, lua_storage_state, 3);
         lua_settable(lua_storage_state, -3);
-        lua_pop(lua_storage_state, 1); // pop table
+        lua_pop(lua_storage_state, 1);                                // pop table
       end;
     finally LeaveCriticalSection(lua_lock); end;
-  end;
+  except on e: exception do messagebox(0, pAnsiChar(e.message), 'ERROR', 0); end;
   result:= 0;
 end;
 
@@ -117,19 +129,33 @@ function tLuaShare.DeepCopy(AContext: TLuaContext): integer;
 var namespace_name : ansistring;
 begin
   result:= 0;
-  if assigned(lua_storage_state) then begin
+  if assigned(lua_storage_state) then try
     EnterCriticalSection(lua_lock);
     try
       with AContext do begin
         namespace_name:= Stack[1].AsTable[namespace_item].AsString(datatable_name);
         lua_getglobal(lua_storage_state, pAnsiChar(namespace_name));
-        if (lua_type(lua_storage_state, -1) = LUA_TTABLE) then __deepcopy(lua_storage_state, CurrentState)
-                                                          else lua_pushnil(CurrentState);
+        if (lua_type(lua_storage_state, -1) = LUA_TTABLE) then begin
+          if lua_getmetatable(lua_storage_state, -1) then begin       // if metatable defined, then we have a __data container
+             lua_pop(lua_storage_state, 1);                           // dont need metatable, only check if exists
+             lua_pushstring(lua_storage_state, data_item);
+             lua_gettable(lua_storage_state, -2);                     // get __data table from namespace container
+             __deepcopy(lua_storage_state, CurrentState);
+             lua_pop(lua_storage_state, 1);                           // pop __data table
+          end else __deepcopy(lua_storage_state, CurrentState)
+        end else lua_pushnil(CurrentState);                           // if not, then copy table itself
         lua_pop(lua_storage_state, 1);
         result:= 1;
       end;
     finally LeaveCriticalSection(lua_lock); end;
-  end;
+  except on e: exception do messagebox(0, pAnsiChar(e.message), 'ERROR', 0); end;
+end;
+
+function tLuaShare.ShowMessageBox(AContext: TLuaContext): integer;
+begin
+  with AContext do
+    messagebox(0, pAnsiChar(Stack[1].AsString), pAnsiChar(Stack[2].AsString('Message')), MB_ICONINFORMATION);
+  result:= 0;
 end;
 
 function tLuaShare.GetNameSpace(AContext: TLuaContext): integer;
@@ -140,8 +166,7 @@ end;
 
 function tLuaShare.selfregister(ALuaState: TLuaState; ANameSpace: pAnsiChar): integer;
 begin
-  // create result table
-  lua_newtable(ALuaState); // result table
+  lua_newtable(ALuaState);                                            // result table
     lua_pushstring(ALuaState, 'DeepCopy');
     PushMethod(ALuaState, DeepCopy);
   lua_settable(ALuaState, -3);
@@ -151,18 +176,25 @@ begin
     lua_pushstring(ALuaState, namespace_item);
     lua_pushstring(ALuaState, ANameSpace);
   lua_settable(ALuaState, -3);
-    lua_newtable(ALuaState); // metatable
-      // __index
+    lua_newtable(ALuaState);                                          // metatable
       lua_pushstring(ALuaState, '__index');
       PushMethod(ALuaState, __index);
     lua_settable(ALuaState, -3);
-      // __newindex
       lua_pushstring(ALuaState, '__newindex');
       PushMethod(ALuaState, __newindex);
     lua_settable(ALuaState, -3);
   lua_setmetatable(ALuaState, -2);
-  // indicate that 1 table object is on lua stack
   result:= 1;
+end;
+
+{ lua atpanic handler }
+
+function LuaAtPanic(astate: Lua_State): Integer; cdecl;
+var len: cardinal;
+    err: ansistring;
+begin
+  SetString(err, lua_tolstring(astate, -1, len), len);
+  raise Exception.CreateFmt('LUA ERROR: %s', [err]);
 end;
 
 { main functions }
@@ -179,8 +211,13 @@ begin
   end;
 end;
 
+function get_module_name(Module: HMODULE): ansistring;
+var ModName: array[0..MAX_PATH] of char;
+begin SetString(Result, ModName, GetModuleFileName(Module, ModName, SizeOf(ModName))); end;
+
 function initialize_share(ALuaInstance: TLuaState): integer;
 var hLib : HMODULE;
+    tmp  : ansistring;
 begin
   result:= 0;
   if not assigned(lua_share_instance) then begin
@@ -189,9 +226,25 @@ begin
       // force lua unit initialization:
       InitializeLuaLib(hLib);
       // initialize lua storage state:
-      if not assigned(lua_storage_state) then lua_storage_state:= luaL_newstate;
+      if not assigned(lua_storage_state) then begin
+        lua_storage_state:= luaL_newstate;
+        if assigned(lua_storage_state) then begin
+          lua_atpanic(lua_storage_state, LuaAtPanic);
+          luaL_openlibs(lua_storage_state);
+        end;
+      end;
       // initialize lua wrapper instance:
       lua_share_instance:= tLuaShare.Create(hLib);
+      // execute bootstrap if exists
+      tmp:= ExtractFilePath(ExpandFileName(get_module_name(HInstance))) + bootstrap_name;
+      if fileexists(tmp) then begin
+        with lua_share_instance do
+          RegisterGlobalMethod(lua_storage_state, 'MessageBox', ShowMessageBox);  // register MessageBox() function for bootstrap
+        with TLuaContext.create(lua_storage_state) do try
+          if not ExecuteFileSafe(tmp, 0, tmp) then
+            messagebox(0, pAnsiChar(format('Error loading %s: %s', [bootstrap_name, tmp])), 'ERROR', 0);
+        finally free; end;
+      end;
     end else messagebox(0, pAnsiChar(format('Failed to find LUA library: %s', [lua_supported_libs[low(lua_supported_libs)]])), 'ERROR', 0);
   end;
   if assigned(lua_share_instance) then begin

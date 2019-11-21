@@ -111,6 +111,8 @@ type  TLuaState          = Lua_State;
 
         function    ExecuteSafe(const AScript: ansistring; AResCount: integer; var error: ansistring): boolean;
 
+        function    ExecuteFileSafe(const AFileName: ansistring; AResCount: integer; var error: ansistring): boolean;
+
         procedure   CleanUp(ACount: integer);
 
         procedure   SetGlobal(AIndex: integer; const AName: ansistring);
@@ -135,6 +137,8 @@ type  TLuaState          = Lua_State;
       private
         fFuncs          : TFuncList;
         fStartCount     : integer;
+
+        function    fGetSelf: TLuaClass;
       protected
         procedure   PushMethod(ALuaState: TLuaState; AMethod: tLuaFunction);
       public
@@ -146,6 +150,8 @@ type  TLuaState          = Lua_State;
         function    StopRegister(ALuaState: TLuaState; const ALibName: ansistring; aleave_table: boolean = false): integer;
 
         procedure   RegisterGlobalMethod(ALuaState: TLuaState; const AName: ansistring; AMethod: tLuaFunction);
+
+        property    CurrentLuaClass: TLuaClass read fGetSelf;
       end;
 
 implementation
@@ -627,6 +633,21 @@ begin
   end else error:= 'Script loading failed';
 end;
 
+function TLuaContext.ExecuteFileSafe(const AFileName: ansistring; AResCount: integer; var error: ansistring): boolean;
+var len: cardinal;
+begin
+  result:= (luaL_loadfile(fLuaState, pAnsiChar(AFileName)) = 0);
+  if result then begin
+    result:= (lua_pcall(fLuaState, 0, AResCount, 0) = 0);
+    if not result then begin
+      len:= 0;
+      SetString(error, lua_tolstring(fLuaState, -1, len), len);
+      lua_pop(fLuaState, 1);
+      result:= false;
+    end;
+  end else error:= 'Script loading failed';
+end;
+
 procedure TLuaContext.CleanUp(ACount: integer);
 begin lua_pop(fLuaState, ACount); end;
 
@@ -706,6 +727,9 @@ begin
   if assigned(fFuncs) then freeandnil(fFuncs);
   inherited destroy;
 end;
+
+function TLuaClass.fGetSelf: TLuaClass;
+begin result:= Self; end;
 
 procedure TLuaClass.PushMethod(ALuaState: TLuaState; AMethod: tLuaFunction);
 begin
