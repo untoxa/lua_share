@@ -8,10 +8,10 @@ uses  windows, sysutils,
 
 {$R *.res}
 
-function luaopen_share(ALuaInstance: Lua_State): longint; cdecl;
+function luaopen_lua_share(ALuaInstance: Lua_State): longint; cdecl;
 begin result:= initialize_share(ALuaInstance); end;
 
-exports  luaopen_share;
+exports  luaopen_lua_share name 'luaopen_lua_share';
 
 begin
   IsMultiThread:= true;

@@ -1,5 +1,5 @@
-package.cpath = getScriptPath() .. "\\lua_share.dll"
-sh = require "share"
+package.cpath = getScriptPath() .. "/?.dll"
+sh = require "lua_share"
 
 exitflag = false
 

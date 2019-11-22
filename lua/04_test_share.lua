@@ -1,27 +1,35 @@
-package.cpath = getScriptPath() .. "\\lua_share.dll"
-sh = require "share"
+package.cpath = getScriptPath() .. "/?.dll"
+sh = require "lua_share"
 
-function serializeTable(val, name, skipnewlines, depth)
-    skipnewlines = skipnewlines or false
-    depth = depth or 0
-    local tmp = string.rep(" ", depth)
-    if name then tmp = tmp .. tostring(name) .. " = " end
-    if type(val) == "table" then
-        tmp = tmp .. "{" .. (not skipnewlines and "\n" or "")
-        for k, v in pairs(val) do
-            tmp =  tmp .. serializeTable(v, serializeTable(k), skipnewlines, depth + 1) .. "," .. (not skipnewlines and "\n" or "")
-        end
-        tmp = tmp .. string.rep(" ", depth) .. "}"
-    elseif type(val) == "number" then
-        tmp = tmp .. tostring(val)
-    elseif type(val) == "string" then
-        tmp = tmp .. string.format("%q", val)
-    elseif type(val) == "boolean" then
-        tmp = tmp .. (val and "true" or "false")
-    else
-        tmp = tmp .. "\"[inserializeable datatype:" .. type(val) .. "]\""
-    end
-    return tmp
+function table.val_to_str ( v )
+   if "string" == type( v ) then
+      v = string.gsub( v, "\n", "\\n" )
+      if string.match( string.gsub(v,"[^'\"]",""), '^"+$' ) then
+         return "'" .. v .. "'"
+      end
+      return '"' .. string.gsub(v,'"', '\\"' ) .. '"'
+   end
+   return "table" == type( v ) and table.tostring( v ) or tostring( v )
+end
+function table.key_to_str ( k )
+   if "string" == type( k ) and string.match( k, "^[_%a][_%a%d]*$" ) then
+      return k
+   end
+   return "[" .. table.val_to_str( k ) .. "]"
+end
+function table.tostring( tbl )
+   if type(tbl)~='table' then return table.val_to_str(tbl) end
+   local result, done = {}, {}
+   for k, v in ipairs( tbl ) do
+      table.insert( result, table.val_to_str( v ) )
+      done[ k ] = true
+   end
+   for k, v in pairs( tbl ) do
+      if not done[ k ] then
+         table.insert( result, table.key_to_str( k ) .. "=" .. table.val_to_str( v ) )
+      end
+   end
+   return "{" .. table.concat( result, "," ) .. "}"
 end
 
 function main()
@@ -32,10 +40,10 @@ function main()
     ns[{1, 2, {3, 4}}] = "{1, 2, {3, 4}} overwrite"
     ns[{4, 5, 6}] = nil
     ns["hello"] = "world"
-    message("ns = " .. serializeTable(ns:DeepCopy()), 1)
+    message("ns = " .. table.tostring(ns:DeepCopy()), 1)
 
     local tmp = ns[{1, 2, {3, 4}}]
-    message("ns[{1, 2, {3, 4}}] = " .. serializeTable(tmp), 1)
+    message("ns[{1, 2, {3, 4}}] = " .. table.tostring(tmp), 1)
     message("hello " .. ns["hello"], 1)
 
 end
