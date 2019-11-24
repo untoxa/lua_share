@@ -2,7 +2,7 @@ package.cpath = getScriptPath() .. "/?.dll"
 sh = require "lua_share"
 
 function main()
-    local ns = sh.GetNameSpace("queues") -- get predefined "queues" namespace
+    local ns = sh.GetNameSpace("eventlists") -- get predefined "eventlists" namespace
     
     while not exitflag do
         local data = "{"

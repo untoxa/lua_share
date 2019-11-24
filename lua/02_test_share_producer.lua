@@ -8,13 +8,13 @@ function main()
     local tmp = {["foo"] = "bar", [123] = 456, {1,2,3}, {4,5,6}, [{1,2,3}] = "tblkey"}
     local i = 0
     while not exitflag do
-      i = i + 1
-      tmp["iteration"] = i
-      ns["test"] = tmp
-      sleep(1000)
+        i = i + 1
+        tmp["iteration"] = i
+        ns["test"] = tmp
+        sleep(1000)
     end
 end
 
 function OnStop()
-  exitflag = true
+    exitflag = true
 end

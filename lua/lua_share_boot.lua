@@ -44,7 +44,6 @@ __default_namespace_metatable = {
             end
         end
     end,
-
     __index = function(self, key)
 --        MessageBox('__index()')     -- show debug message
         if type(key)~="table" then
@@ -58,36 +57,34 @@ __default_namespace_metatable = {
 }
 
 -- predefined "queues" namespace implementation
-
--- simple fifo queue implementation
-__list = {}
-function __list.new ()
-  return {first = 0, last = -1}
-end
-function __list.push (list, value)
-  if list.last == nil then
-    list.last = -1
-    list.first = 0
-  end
-  local last = list.last + 1
-  list.last = last
-  list[last] = value
-end
-function __list.pop (list)
-  if list.first == nil then
-    list.last = -1
-    list.first = 0
-  end
-  local first = list.first
-  if first > list.last then return nil end
-  local value = list[first]
-  list[first] = nil
-  list.first = first + 1
-  return value
-end
-
--- global namespace:
-queues = {__data = {}}
+-----------------------------------------------
+queues = {
+    __data = {},
+    __new = function()
+        return {first = 0, last = -1}
+    end,
+    __push = function(list, value)
+        if list.last == nil then
+            list.last = -1
+            list.first = 0
+        end
+        local last = list.last + 1
+        list.last = last
+        list[last] = value
+    end,
+    __pop = function(list)
+        if list.first == nil then
+            list.last = -1
+            list.first = 0
+        end
+        local first = list.first
+        if first > list.last then return nil end
+        local value = list[first]
+        list[first] = nil
+        list.first = first + 1
+        return value
+    end
+}
 
 setmetatable(queues, {
     __newindex = function(self, key, value)
@@ -96,16 +93,15 @@ setmetatable(queues, {
             idx = key
         else
             idx = __findkey(self.__data, key)
-            if not idx then idx = key end
+            if idx == nil then idx = key end
         end
         local queue = self.__data[idx]
         if queue == nil then
-          queue = __list.new()
-          self.__data[idx] = queue
+            queue = self.__new()
+            self.__data[idx] = queue
         end;
-        __list.push(queue, value)
+        self.__push(queue, value)
     end,
-
     __index = function(self, key)
         local idx = nil
         if type(key)~="table" then
@@ -113,14 +109,72 @@ setmetatable(queues, {
         else
             idx = __findkey(self.__data, key)
         end
-        if idx then
-          local queue = self.__data[idx]
-          if queue ~= nil then
-            return __list.pop(queue)
-          end
+        if idx ~= nil then
+            local queue = self.__data[idx]
+            if queue ~= nil then
+                return self.__pop(queue)
+            end
         end
         return nil
     end
+})
+
+-- predefined "eventlist" namespace implementation
+-- queue of unique values
+--------------------------------------------------
+eventlists = {
+    __data = {},
+    __new = function()
+        return {}
+    end,
+    __push = function(list, key, value)
+        local idx = nil
+        if type(key)~="table" then
+            idx = key
+        else
+            idx = __findkey(list, key)
+            if idx == nil then idx = key end
+        end
+        list[idx] = value
+    end,
+    __pop = function(list)
+        local key, value = next(list, nil)
+        if key ~= nil then list[key] = nil end
+        return key, value
+    end
 }
-)
+
+setmetatable(eventlists, {
+    __newindex = function(self, key, value)
+        local idx = nil
+        if type(key)~="table" then
+            idx = key
+        else
+            idx = __findkey(self.__data, key)
+            if idx == nil then idx = key end
+        end
+        local queue = self.__data[idx]
+        if queue == nil then
+            queue = self.__new()
+            self.__data[idx] = queue
+        end;
+        self.__push(queue, value, 1) -- use value as key
+    end,
+    __index = function(self, key)
+        local idx = nil
+        if type(key)~="table" then
+            idx = key
+        else
+            idx = __findkey(self.__data, key)
+        end
+        if idx ~= nil then
+            local queue = self.__data[idx]
+            if queue ~= nil then
+                local k, v = self.__pop(queue)
+                return k
+            end
+        end
+        return nil
+    end
+})
 
