@@ -56,3 +56,71 @@ __default_namespace_metatable = {
         return nil
     end
 }
+
+-- predefined "queues" namespace implementation
+
+-- simple fifo queue implementation
+__list = {}
+function __list.new ()
+  return {first = 0, last = -1}
+end
+function __list.push (list, value)
+  if list.last == nil then
+    list.last = -1
+    list.first = 0
+  end
+  local last = list.last + 1
+  list.last = last
+  list[last] = value
+end
+function __list.pop (list)
+  if list.first == nil then
+    list.last = -1
+    list.first = 0
+  end
+  local first = list.first
+  if first > list.last then return nil end
+  local value = list[first]
+  list[first] = nil
+  list.first = first + 1
+  return value
+end
+
+-- global namespace:
+queues = {__data = {}}
+
+setmetatable(queues, {
+    __newindex = function(self, key, value)
+        local idx = nil
+        if type(key)~="table" then
+            idx = key
+        else
+            idx = __findkey(self.__data, key)
+            if not idx then idx = key end
+        end
+        local queue = self.__data[idx]
+        if queue == nil then
+          queue = __list.new()
+          self.__data[idx] = queue
+        end;
+        __list.push(queue, value)
+    end,
+
+    __index = function(self, key)
+        local idx = nil
+        if type(key)~="table" then
+            idx = key
+        else
+            idx = __findkey(self.__data, key)
+        end
+        if idx then
+          local queue = self.__data[idx]
+          if queue ~= nil then
+            return __list.pop(queue)
+          end
+        end
+        return nil
+    end
+}
+)
+
