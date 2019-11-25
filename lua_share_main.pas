@@ -85,8 +85,11 @@ begin
           __deepcopyvalue(CurrentState, lua_storage_state, 2);
           lua_gettable(lua_storage_state, -2);
           __deepcopy(lua_storage_state, CurrentState);
-        end else lua_pushnil(CurrentState);
-        lua_pop(lua_storage_state, 2);
+          lua_pop(lua_storage_state, 2);
+        end else begin
+          lua_pop(lua_storage_state, 1);
+          lua_pushnil(CurrentState);
+        end;
         result:= 1;
       end;
     finally LeaveCriticalSection(lua_lock); end;
@@ -244,7 +247,7 @@ begin
           if not ExecuteFileSafe(tmp, 0, tmp) then
             messagebox(0, pAnsiChar(format('Error loading %s: %s', [bootstrap_name, tmp])), 'ERROR', 0);
         finally free; end;
-      end;
+      end else messagebox(0, pAnsiChar(format('Boot script not found: %s', [tmp])), 'WARNING', MB_ICONWARNING);
     end else messagebox(0, pAnsiChar(format('Failed to find LUA library: %s', [lua_supported_libs[low(lua_supported_libs)]])), 'ERROR', 0);
   end;
   if assigned(lua_share_instance) then begin
