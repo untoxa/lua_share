@@ -120,7 +120,7 @@ setmetatable(queues, {
 })
 
 -- predefined "eventlist" namespace implementation
--- queue of unique values
+-- "queue" of unique values
 --------------------------------------------------
 eventlists = {
     __data = {},
@@ -177,4 +177,74 @@ setmetatable(eventlists, {
         return nil
     end
 })
+
+-- predefined "permanent" namespace implementation
+-- namespace with load/save
+--------------------------------------------------
+function table.val_to_str(v)
+    if "string" == type(v) then
+        v = string.gsub(v, "\n", "\\n")
+        if string.match(string.gsub(v,"[^'\"]",""), '^"+$') then
+            return "'" .. v .. "'"
+        end
+        return '"' .. string.gsub(v,'"', '\\"') .. '"'
+    end
+    return "table" == type(v) and table.tostring(v) or tostring(v)
+end
+function table.key_to_str(k)
+    if "string" == type(k) and string.match(k, "^[_%a][_%a%d]*$") then
+        return k
+    end
+    return "[" .. table.val_to_str(k) .. "]"
+end
+function table.tostring(tbl)
+    if type(tbl)~='table' then return table.val_to_str(tbl) end
+    local result, done = {}, {}
+    for k, v in ipairs(tbl) do
+        table.insert(result, table.val_to_str(v))
+        done[k] = true
+    end
+    for k, v in pairs(tbl) do
+        if not done[k] then
+            table.insert(result, table.key_to_str(k) .. "=" .. table.val_to_str(v))
+        end
+    end
+    return "{" .. table.concat(result, ",") .. "}"
+end
+function table.load(fname)
+    local f = io.open(fname, "r")
+    if not f then return {} end
+    local fn = loadstring("return "..f:read("*a"))
+    f:close()
+    if type(fn) == "function" then
+        local res = fn()
+        if type(res) == "table" then return res end
+    end
+    return {}
+end
+function table.save(fname, tbl)
+    local file = io.open(fname, "w")
+    if file ~= nil then
+        file:write(table.tostring(tbl))
+        file:close()
+    end
+end
+
+permanent = {
+    __data = table.load("lua_share.permanent.dat"),
+}
+__permanent_metatable = {
+    __newindex = __default_namespace_metatable.__newindex,
+    __index = __default_namespace_metatable.__index,
+    __gc = function(self)
+        table.save("lua_share.permanent.dat", self.__data)
+    end
+}
+if _VERSION == "Lua 5.1" then
+    local t = permanent
+    local proxy = newproxy(true)
+    getmetatable(proxy).__gc = function(self) __permanent_metatable.__gc(t) end
+    permanent[proxy] = true
+end
+setmetatable(permanent, __permanent_metatable)
 
