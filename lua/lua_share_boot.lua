@@ -216,7 +216,7 @@ function table.tostring(tbl)
 end
 function table.load(fname)
     local f, err = io.open(fname, "r")
-    if not f then return {} end
+    if f == nil then return {} end
     local fn, err = loadstring("return "..f:read("*a"))
     f:close()
     if type(fn) == "function" then
@@ -240,7 +240,12 @@ __permanent_metatable = {
     __newindex = __default_namespace_metatable.__newindex,
     __index = __default_namespace_metatable.__index,
     __gc = function(self)
-        table.save(__script_path .. "lua_share.permanent.dat", self.__data)
+        local fname = __script_path .. "lua_share.permanent.dat"
+        if (self.__data ~= nil) and (next(self.__data) ~= nil) then
+            table.save(fname, self.__data)
+        else
+            os.remove(fname)
+        end
     end
 }
 if _VERSION == "Lua 5.1" then
