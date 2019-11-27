@@ -215,21 +215,21 @@ function table.tostring(tbl)
     return "{" .. table.concat(result, ",") .. "}"
 end
 function table.load(fname)
-    local f = io.open(fname, "r")
+    local f, err = io.open(fname, "r")
     if not f then return {} end
     local fn, err = loadstring("return "..f:read("*a"))
     f:close()
     if type(fn) == "function" then
-        local res, err = fn()
-        if type(res) == "table" then return res end
+        local succ, res = pcall(fn)
+        if succ and type(res) == "table" then return res end
     end
     return {}
 end
 function table.save(fname, tbl)
-    local file = io.open(fname, "w")
-    if file ~= nil then
-        file:write(table.tostring(tbl))
-        file:close()
+    local f, err = io.open(fname, "w")
+    if f ~= nil then
+        f:write(table.tostring(tbl))
+        f:close()
     end
 end
 
