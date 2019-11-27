@@ -13,6 +13,7 @@ const package_name       = 'share';
       namespace_item     = '__namespace';
       data_item          = '__data';
       bootstrap_name     = 'lua_share_boot.lua';
+      boot_script_path   = '__script_path';
 
 const lua_supported_libs : array[0..1] of pAnsiChar = ('Lua5.1.dll', 'qlua.dll');
 
@@ -219,8 +220,8 @@ var ModName: array[0..MAX_PATH] of char;
 begin SetString(Result, ModName, GetModuleFileName(Module, ModName, SizeOf(ModName))); end;
 
 function initialize_share(ALuaInstance: TLuaState): integer;
-var hLib : HMODULE;
-    tmp  : ansistring;
+var hLib       : HMODULE;
+    path, tmp  : ansistring;
 begin
   result:= 0;
   if not assigned(lua_share_instance) then begin
@@ -239,10 +240,16 @@ begin
       // initialize lua wrapper instance:
       lua_share_instance:= tLuaShare.Create(hLib);
       // execute bootstrap if exists
-      tmp:= ExtractFilePath(ExpandFileName(get_module_name(HInstance))) + bootstrap_name;
+      path:= ExtractFilePath(ExpandFileName(get_module_name(HInstance)));
+      tmp:= path + bootstrap_name;
       if fileexists(tmp) then begin
-        with lua_share_instance do
-          RegisterGlobalMethod(lua_storage_state, 'MessageBox', ShowMessageBox);  // register MessageBox() function for bootstrap
+        with lua_share_instance do begin
+          // register __script_path global variable for bootstrap
+          lua_pushstring(lua_storage_state, pAnsiChar(path));
+          lua_setglobal(lua_storage_state, boot_script_path);
+          // register MessageBox() function for bootstrap
+          RegisterGlobalMethod(lua_storage_state, 'MessageBox', ShowMessageBox);
+        end;
         with TLuaContext.create(lua_storage_state) do try
           if not ExecuteFileSafe(tmp, 0, tmp) then
             messagebox(0, pAnsiChar(format('Error loading %s: %s', [bootstrap_name, tmp])), 'ERROR', 0);

@@ -1,3 +1,6 @@
+--   __script_path             -  absolute path to this script
+--   MesssageBox(text, title)  - shows messagebox
+
 -- function compares two tables by contents
 function __deepcompare(t1, t2, ignore_mt)
     local ty1 = type(t1)
@@ -214,10 +217,10 @@ end
 function table.load(fname)
     local f = io.open(fname, "r")
     if not f then return {} end
-    local fn = loadstring("return "..f:read("*a"))
+    local fn, err = loadstring("return "..f:read("*a"))
     f:close()
     if type(fn) == "function" then
-        local res = fn()
+        local res, err = fn()
         if type(res) == "table" then return res end
     end
     return {}
@@ -231,13 +234,13 @@ function table.save(fname, tbl)
 end
 
 permanent = {
-    __data = table.load("lua_share.permanent.dat"),
+    __data = table.load(__script_path .. "lua_share.permanent.dat"),
 }
 __permanent_metatable = {
     __newindex = __default_namespace_metatable.__newindex,
     __index = __default_namespace_metatable.__index,
     __gc = function(self)
-        table.save("lua_share.permanent.dat", self.__data)
+        table.save(__script_path .. "lua_share.permanent.dat", self.__data)
     end
 }
 if _VERSION == "Lua 5.1" then
