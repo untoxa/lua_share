@@ -693,14 +693,14 @@ begin
      SetLuaLibFileName( newLuaLibFileName );
 
   if not FileExists( GetLuaLibFileName() ) then begin
-     Result := HMODULE(-1);
+     Result := 0;
      exit;
   end;
 
   hlib := LoadLibrary( PChar(GetLuaLibFileName()));
 
   if (hlib = 0) then begin
-     Result := HMODULE(-2);
+     Result := 0;
      exit;
   end else fLibLoaded:= true;
 

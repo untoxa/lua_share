@@ -1,4 +1,4 @@
---   __script_path             -  absolute path to this script
+--   __script_path             - absolute path to this script
 --   MesssageBox(text, title)  - shows messagebox
 
 -- function compares two tables by contents
@@ -35,7 +35,6 @@ end
 -- assume that self.__data is a container for actual table data
 __default_namespace_metatable = {
     __newindex = function(self, key, value)
---        MessageBox('__newindex()')  -- show debug message
         if type(key)~="table" then
             self.__data[key] = value
         else
@@ -48,7 +47,6 @@ __default_namespace_metatable = {
         end
     end,
     __index = function(self, key)
---        MessageBox('__index()')     -- show debug message
         if type(key)~="table" then
             return self.__data[key]
         else
@@ -67,20 +65,23 @@ queues = {
         return {first = 0, last = -1}
     end,
     __push = function(list, value)
-        if list.last == nil then
-            list.last = -1
+        local last = list.last
+        if last == nil then
+            list.last = 0
             list.first = 0
+            list[0] = value
+        else
+            list.last = last + 1
+            list[last + 1] = value
         end
-        local last = list.last + 1
-        list.last = last
-        list[last] = value
     end,
     __pop = function(list)
-        if list.first == nil then
+        local first = list.first
+        if first == nil then
             list.last = -1
             list.first = 0
+            return nil
         end
-        local first = list.first
         if first > list.last then return nil end
         local value = list[first]
         list[first] = nil
@@ -233,18 +234,18 @@ function table.save(fname, tbl)
     end
 end
 
+__permanent_file_name = __script_path .. "lua_share.permanent.dat"
 permanent = {
-    __data = table.load(__script_path .. "lua_share.permanent.dat"),
+    __data = table.load(__permanent_file_name),
 }
 __permanent_metatable = {
     __newindex = __default_namespace_metatable.__newindex,
     __index = __default_namespace_metatable.__index,
     __gc = function(self)
-        local fname = __script_path .. "lua_share.permanent.dat"
         if (self.__data ~= nil) and (next(self.__data) ~= nil) then
-            table.save(fname, self.__data)
+            table.save(__permanent_file_name, self.__data)
         else
-            os.remove(fname)
+            os.remove(__permanent_file_name)
         end
     end
 }
