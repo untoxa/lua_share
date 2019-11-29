@@ -188,7 +188,7 @@ begin
       fCodec.writenumber(2);
       fCodec.writestring(namespace_name);
       stack2buf(AContext.CurrentState, 2, fCodec);
-      if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, AContext.Stack[2].AsInteger(5000)) then begin
+      if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, AContext.Stack[3].AsInteger(5000)) then begin
         fCodec.startcodec(fDataBuffer, received_len);
         result:= fCodec.readint(0);
         for i:= 0 to result - 1 do
@@ -215,7 +215,7 @@ begin
       fCodec.writestring(namespace_name);
       stack2buf(AContext.CurrentState, 2, fCodec);
       stack2buf(AContext.CurrentState, 3, fCodec);
-      if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, AContext.Stack[2].AsInteger(5000)) then begin
+      if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, AContext.Stack[4].AsInteger(5000)) then begin
         fCodec.startcodec(fDataBuffer, received_len);
         result:= fCodec.readint(0);
         for i:= 0 to result - 1 do
