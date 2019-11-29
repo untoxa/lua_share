@@ -161,28 +161,34 @@ begin
 end;
 
 var fname, err : ansistring;
+    hMutex     : THandle;
 begin
   SetConsoleCtrlHandler(@CtrlHandler, true);
   writeln('ipc server started');
-  fname:= expandfilename(changefileext(get_module_name(HInstance), '.lua'));
-  if fileexists(fname) then begin
-    hLib:= LoadLuaLib('lua5.1.dll');
-    if (hLib <> 0) then begin
-      luastate:= luaL_newstate;
-      luaL_openlibs(luastate);
-      try
-        luacontext:= TLuaContext.create(luastate);
-        luacommon:= tLuaCommon.Create(hLib, luacontext);
+
+  hMutex:= CreateMutex(nil, true, '{F58C5448-FB40-4808-9128-D0BC99705E1E}');
+  if (GetLastError = 0) then begin
+    fname:= expandfilename(changefileext(get_module_name(HInstance), '.lua'));
+    if fileexists(fname) then begin
+      hLib:= LoadLuaLib('lua5.1.dll');
+      if (hLib <> 0) then begin
+        luastate:= luaL_newstate;
+        luaL_openlibs(luastate);
         try
-          luacommon.RegisterGlobalMethod(luastate, 'print', luacommon.print);
-          luacommon.RegisterGlobalMethod(luastate, 'ProcessIPC', luacommon.ProcessIPC);
-          if not luacontext.ExecuteFileSafe(fname, 0, err) then writeln('error: script loading failed: ', err);
-        finally
-          freeandnil(luacommon);
-          freeandnil(luacontext);
-        end;
-      finally lua_close(luastate) end;
-    end else writeln('error: unable to load lua5.1.dll');
-  end else writeln('error: filename "', fname, '" not found!');
-  writeln('done!');
+          luacontext:= TLuaContext.create(luastate);
+          luacommon:= tLuaCommon.Create(hLib, luacontext);
+          try
+            luacommon.RegisterGlobalMethod(luastate, 'print', luacommon.print);
+            luacommon.RegisterGlobalMethod(luastate, 'ProcessIPC', luacommon.ProcessIPC);
+            if not luacontext.ExecuteFileSafe(fname, 0, err) then writeln('error: script loading failed: ', err);
+          finally
+            freeandnil(luacommon);
+            freeandnil(luacontext);
+          end;
+        finally lua_close(luastate) end;
+        writeln('done!');
+      end else writeln('error: unable to load lua5.1.dll');
+    end else writeln('error: filename "', fname, '" not found!');
+    CloseHandle(hMutex);
+  end else writeln('error: only one instance allowed!');
 end.
