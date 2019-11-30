@@ -10,7 +10,7 @@ uses  windows, classes, sysutils, math,
 
 const transmission_buffer_size = 512 * 1024; // 512K
       max_transmission_size    = transmission_buffer_size - sizeof(longint);
-      max_single_value_size    = 65535;
+      max_single_value_size    = 64 * 1024;  // 64K
 
 const package_name       = 'share';
       datatable_name     = '__default_namespace';
@@ -175,7 +175,7 @@ end;
 function tLuaShare.__IPC_index(AContext: TLuaContext): integer;
 var namespace_name : ansistring;
     received_len   : longint;
-    temp_buffer    : array[0..max_single_value_size] of ansichar;
+    temp_buffer    : array[0..max_single_value_size - 1] of ansichar;
     i              : longint;
 begin
   result:= 0;
@@ -201,7 +201,7 @@ end;
 function tLuaShare.__IPC_newindex(AContext: TLuaContext): integer;
 var namespace_name : ansistring;
     received_len   : longint;
-    temp_buffer    : array[0..max_single_value_size] of ansichar;
+    temp_buffer    : array[0..max_single_value_size - 1] of ansichar;
     i              : longint;
 begin
   result:= 0;
@@ -254,7 +254,7 @@ end;
 function tLuaShare.IPCDeepCopy(AContext: TLuaContext): integer;
 var namespace_name : ansistring;
     received_len   : longint;
-    temp_buffer    : array[0..max_single_value_size] of ansichar;
+    temp_buffer    : array[0..max_single_value_size - 1] of ansichar;
     i              : longint;
 begin
   result:= 0;
