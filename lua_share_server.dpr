@@ -4,6 +4,8 @@ uses  windows, sysutils,
       LuaLib, LuaHelpers,
       lua_buffers, mmf_ipc;
 
+const platform_string          = {$ifdef CPUX64} 'x64' {$else} 'x86' {$endif};
+
 const transmission_buffer_size = 512 * 1024; // 512K
       max_transmission_size    = transmission_buffer_size - sizeof(longint);
 
@@ -40,6 +42,7 @@ const hLib          : HMODULE      = 0;
       luastate      : TLuaState    = nil;
       luacommon     : tLuaCommon   = nil;
       luacontext    : tLuaContext  = nil;
+      noserver      : boolean      = false;
 
 { tLuaCommon }
 
@@ -75,19 +78,21 @@ function tLuaCommon.ProcessIPC(AContext: TLuaContext): integer;
 var res : boolean;
 begin
   with AContext do
-    if not fterminated then begin
-      if not assigned(fServer) then fServer:= tServer.create(Self, Stack[2].AsInteger(transmission_buffer_size));
-      if assigned(fServer) then with fServer do begin
-        res:= opened or open; // try open if not opened
-        if res then begin
-          res:= process(Stack[1].AsInteger(100));
-          if res then result:= PushArgs([res])
-                 else result:= PushArgs([res, 'ProcessIPC error'])
-        end else begin
-          result:= PushArgs([false, 'Unable to open IPC server']);
-        end;
-      end else result:= PushArgs([false, 'Internal error']);
-    end else result:= PushArgs([false, 'IPC Server terminated']);
+    if not noserver then begin
+      if not fterminated then begin
+        if not assigned(fServer) then fServer:= tServer.create(Self, Stack[2].AsInteger(transmission_buffer_size));
+        if assigned(fServer) then with fServer do begin
+          res:= opened or open; // try open if not opened
+          if res then begin
+            res:= process(Stack[1].AsInteger(100));
+            if res then result:= PushArgs([res])
+                   else result:= PushArgs([res, 'ProcessIPC error'])
+          end else begin
+            result:= PushArgs([false, 'Unable to open IPC server']);
+          end;
+        end else result:= PushArgs([false, 'Internal error']);
+      end else result:= PushArgs([false, 'IPC Server terminated']);
+    end else result:= PushArgs([false, 'IPC Server disabled']);
 end;
 
 function tLuaCommon.processdata(input: pAnsiChar; inputsize: longint; output: pAnsiChar; var outputsize: longint): boolean;
@@ -160,14 +165,19 @@ begin
   if assigned(luacommon) then luacommon.terminate;
 end;
 
-var fname, err : ansistring;
-    hMutex     : THandle;
+const hMutex     : THandle     = 0;
+var   fname, err : ansistring;
+      allow_run  : boolean;
 begin
   SetConsoleCtrlHandler(@CtrlHandler, true);
-  writeln('ipc server started');
+  writeln('IPC ', platform_string, ' server started'#$0d#$0a'usage: ', extractfilename(get_module_name(HInstance)), ' [/noserver]');
 
-  hMutex:= CreateMutex(nil, true, '{F58C5448-FB40-4808-9128-D0BC99705E1E}');
-  if (GetLastError = 0) then begin
+  noserver:= (AnsiCompareText(paramstr(1), '/noserver') = 0);
+  if not noserver then begin
+    hMutex:= CreateMutex(nil, true, '{F58C5448-FB40-4808-9128-D0BC99705E1E}');
+    allow_run:= (GetLastError = 0);
+  end else allow_run:= true;
+  if allow_run then begin
     fname:= expandfilename(changefileext(get_module_name(HInstance), '.lua'));
     if fileexists(fname) then begin
       hLib:= LoadLuaLib('lua5.1.dll');
@@ -189,6 +199,6 @@ begin
         writeln('done!');
       end else writeln('error: unable to load lua5.1.dll');
     end else writeln('error: filename "', fname, '" not found!');
-    CloseHandle(hMutex);
+    if (hMutex <> 0) then CloseHandle(hMutex);
   end else writeln('error: only one instance allowed!');
 end.
