@@ -36,6 +36,8 @@ type  tLuaShare          = class(TLuaClass)
 
         procedure   __deepcopy(sour, dest: TLuaState);
         procedure   __deepcopyvalue(sour, dest: TLuaState; avalueindex: integer);
+      protected
+        function    RPCCallNS(AContext: TLuaContext; const afuncname, ansname: ansistring; const aargs: array of const; atimeout: integer): integer;
       public
         constructor create(hLib: HMODULE);
         destructor  destroy; override;
@@ -176,57 +178,10 @@ begin
 end;
 
 function tLuaShare.__IPC_index(AContext: TLuaContext): integer;
-var namespace_name : ansistring;
-    received_len   : longint;
-    temp_buffer    : array[0..max_single_value_size - 1] of ansichar;
-    i              : longint;
-begin
-  result:= 0;
-  if IPCReady then begin
-    EnterCriticalSection(lua_lock);
-    try
-      namespace_name:= AContext.Stack[1].AsTable[namespace_item].AsString(datatable_name);
-      fCodec.startcodec(fDataBuffer, max_transmission_size);
-      fCodec.writestring('GetIPC');
-      fCodec.writenumber(2);
-      fCodec.writestring(namespace_name);
-      stack2buf(AContext.CurrentState, 2, fCodec);
-      if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, AContext.Stack[3].AsInteger(5000)) then begin
-        fCodec.startcodec(fDataBuffer, received_len);
-        result:= fCodec.readint(0);
-        for i:= 0 to result - 1 do
-          buf2stack(AContext.CurrentState, fCodec, @temp_buffer, sizeof(temp_buffer));
-      end;
-    finally LeaveCriticalSection(lua_lock); end;
-  end;
-end;
+begin result:= RPCCallNS(AContext, 'GetIPC', AContext.Stack[1].AsTable[namespace_item].AsString(datatable_name), [2], AContext.Stack[3].AsInteger(max_RPC_timeout)); end;
 
 function tLuaShare.__IPC_newindex(AContext: TLuaContext): integer;
-var namespace_name : ansistring;
-    received_len   : longint;
-    temp_buffer    : array[0..max_single_value_size - 1] of ansichar;
-    i              : longint;
-begin
-  result:= 0;
-  if IPCReady then begin
-    EnterCriticalSection(lua_lock);
-    try
-      namespace_name:= AContext.Stack[1].AsTable[namespace_item].AsString(datatable_name);
-      fCodec.startcodec(fDataBuffer, max_transmission_size);
-      fCodec.writestring('SetIPC');
-      fCodec.writenumber(3);
-      fCodec.writestring(namespace_name);
-      stack2buf(AContext.CurrentState, 2, fCodec);
-      stack2buf(AContext.CurrentState, 3, fCodec);
-      if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, AContext.Stack[4].AsInteger(5000)) then begin
-        fCodec.startcodec(fDataBuffer, received_len);
-        result:= fCodec.readint(0);
-        for i:= 0 to result - 1 do
-          buf2stack(AContext.CurrentState, fCodec, @temp_buffer, sizeof(temp_buffer));
-      end;
-    finally LeaveCriticalSection(lua_lock); end;
-  end;
-end;
+begin result:= RPCCallNS(AContext, 'SetIPC', AContext.Stack[1].AsTable[namespace_item].AsString(datatable_name), [2, 3], AContext.Stack[4].AsInteger(max_RPC_timeout)); end;
 
 function tLuaShare.DeepCopy(AContext: TLuaContext): integer;
 var namespace_name : ansistring;
@@ -255,28 +210,31 @@ begin
 end;
 
 function tLuaShare.IPCDeepCopy(AContext: TLuaContext): integer;
-var namespace_name : ansistring;
-    received_len   : longint;
+begin result:= RPCCallNS(AContext, 'DumpIPC', AContext.Stack[1].AsTable[namespace_item].AsString(datatable_name), [], AContext.Stack[2].AsInteger(max_RPC_timeout)); end;
+
+function tLuaShare.RPCCallNS(AContext: TLuaContext; const afuncname, ansname: ansistring; const aargs: array of const; atimeout: integer): integer;
+var received_len   : longint;
     temp_buffer    : array[0..max_single_value_size - 1] of ansichar;
     i              : longint;
 begin
   result:= 0;
-  if IPCReady then begin
-    EnterCriticalSection(lua_lock);
-    try
-      namespace_name:= AContext.Stack[1].AsTable[namespace_item].AsString(datatable_name);
+  EnterCriticalSection(lua_lock);
+  try
+    if IPCReady then begin
       fCodec.startcodec(fDataBuffer, max_transmission_size);
-      fCodec.writestring('DumpIPC');
-      fCodec.writenumber(1);
-      fCodec.writestring(namespace_name);
-      if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, AContext.Stack[2].AsInteger(5000)) then begin
+      fCodec.writestring(afuncname);
+      fCodec.writenumber(length(aargs) + 1);
+      fCodec.writestring(ansname);
+      for i:= 0 to length(aargs) - 1 do
+        stack2buf(AContext.CurrentState, aargs[i].VInteger, fCodec);
+      if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, atimeout) then begin
         fCodec.startcodec(fDataBuffer, received_len);
         result:= fCodec.readint(0);
         for i:= 0 to result - 1 do
           buf2stack(AContext.CurrentState, fCodec, @temp_buffer, sizeof(temp_buffer));
       end;
-    finally LeaveCriticalSection(lua_lock); end;
-  end;
+    end;
+  finally LeaveCriticalSection(lua_lock); end;
 end;
 
 function tLuaShare.RPC(AContext: TLuaContext): integer;
@@ -286,9 +244,9 @@ var function_name  : ansistring;
     ssize, i       : longint;
 begin
   result:= 0;
-  if IPCReady then begin
-    EnterCriticalSection(lua_lock);
-    try
+  EnterCriticalSection(lua_lock);
+  try
+    if IPCReady then begin
       ssize:= AContext.StackSize;
       function_name:= AContext.Stack[1].AsString;
       if (length(function_name) > 0) then begin
@@ -304,8 +262,8 @@ begin
             buf2stack(AContext.CurrentState, fCodec, @temp_buffer, sizeof(temp_buffer));
         end;
       end;
-    finally LeaveCriticalSection(lua_lock); end;
-  end;
+    end;
+  finally LeaveCriticalSection(lua_lock); end;
 end;
 
 function tLuaShare.ShowMessageBox(AContext: TLuaContext): integer;
@@ -316,9 +274,7 @@ begin
 end;
 
 function tLuaShare.GetNameSpace(AContext: TLuaContext): integer;
-begin
-  with AContext do result:= selfregister(CurrentState, pAnsiChar(Stack[1].AsString(datatable_name)), DeepCopy, __index, __newindex);
-end;
+begin with AContext do result:= selfregister(CurrentState, pAnsiChar(Stack[1].AsString(datatable_name)), DeepCopy, __index, __newindex); end;
 
 function tLuaShare.GetIPCNameSpace(AContext: TLuaContext): integer;
 begin
