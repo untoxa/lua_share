@@ -96,12 +96,12 @@ begin
 end;
 
 function tLuaCommon.processdata(input: pAnsiChar; inputsize: longint; output: pAnsiChar; var outputsize: longint): boolean;
-var buffer   : array[0..16384] of ansichar;
-    fname    : ansistring;
-    argcount : longint;
-    luastate : TLuaState;
-    len, i   : longint;
-    tmpd     : double;
+var buffer        : array[0..16384] of ansichar;
+    fname         : ansistring;
+    argcount      : longint;
+    luastate      : TLuaState;
+    ssize, len, i : longint;
+    tmpd          : double;
 begin
   result:= assigned(fContext) and assigned(fcodec);
   if result then begin
@@ -109,21 +109,24 @@ begin
     fcodec.startcodec(input, inputsize);
     if (fcodec.read(@buffer, sizeof(buffer), len) = LUA_TSTRING) then begin
       setstring(fname, buffer, len);
+      ssize:= lua_gettop(luastate);            // saving stack size before call
+
       lua_getglobal(luastate, pAnsiChar(fname));
       if (lua_type(luastate, -1) = LUA_TFUNCTION) then begin
         if (fcodec.read(@buffer, sizeof(buffer), len) = LUA_TNUMBER) then argcount:= round(pdouble(@buffer)^)
-                                                                     else argcount:= 0;     
+                                                                     else argcount:= 0;
         for i:= 0 to argcount - 1 do
           buf2stack(luastate, fcodec, @buffer, sizeof(buffer));
-          
-        result:= (lua_pcall(luastate, argcount, 1, 0) = 0);
+
+        result:= (lua_pcall(luastate, argcount, LUA_MULTRET, 0) = 0);
         if result then begin
-          tmpd:= 1;
+          len:= lua_gettop(luastate) - ssize;  // len contains number of results returned
           fcodec.startcodec(output, fServer.maxdatalen);
-          fcodec.write(LUA_TNUMBER, @tmpd, sizeof(tmpd));
-          stack2buf(luastate, -1, fcodec);
+          tmpd:= len; fcodec.write(LUA_TNUMBER, @tmpd, sizeof(tmpd));
+          for i:= len downto 1 do
+            stack2buf(luastate, - i, fcodec);
           outputsize:= fcodec.stopcodec;
-          lua_pop(luastate, 1);
+          lua_pop(luastate, len);              // pop results from stack
         end else begin
           len:= 0;
           SetString(fname, lua_tolstring(luastate, -1, cardinal(len)), len);

@@ -95,6 +95,8 @@ type  TLuaState          = Lua_State;
 
         procedure   SetLuaState(ALuaState: TLuaState);
 
+        function    StackSize: longint;
+
         function    PushArgs(const aargs: array of const; avalueslist: boolean): integer; overload;
         function    PushArgs(const aargs: array of const): integer; overload;
         function    PushArgs(aargs: tStringList): integer; overload;
@@ -442,6 +444,9 @@ end;
 
 procedure TLuaContext.SetLuaState(ALuaState: TLuaState);
 begin fLuaState:= ALuaState; end;
+
+function TLuaContext.StackSize: longint;
+begin result:= lua_gettop(fLuaState); end;
 
 function TLuaContext.fGetStackByIndex(AIndex: integer): TLuaField;
 begin

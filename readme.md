@@ -75,13 +75,23 @@ local ns = sh.GetIPCNameSpace("test_name_space")
 Способ работы с ним не отличается.
 
 
+RPC:
+----
+
+Существует возможность вызова удаленной функции на lua_share_server и получить результаты ее выполнения.
+Тестовая функция testfunc() определена в lua_share_server.lua. Вот пример ее вызова:
+
+local ns = sh.GetIPCNameSpace("test_name_space")
+a, b, c = ns.RPC("testfunc", "a", {1, 2, {3, "b"}})
+
+
 pre-defined пространства:
 -------------------------
 
 "queues"    - пространство имен, реализующее очереди (queue).
 "eventlist" - пространство, реализующее списки событий (аналог waitformultipleobjects).
 "permanent" - пространство, загружающее себя из файла при старте и записывающее себя в файл при
-              уничтожении.
+              выходе (завершении всех скриптов).
 
 
 примеры:
@@ -104,4 +114,7 @@ pre-defined пространства:
 
 09_test_share_permanent.lua   - сохранение данных между запусками скрипта а так же перезапуском QUIK
 
-10_test_share_IPC.lua         - пример работы с "удаленным" хранилищем, должен быть запущен lua_share.server.exe
+10_test_share_IPC.lua         - пример работы с "удаленным" хранилищем, должен быть запущен lua_share_server.exe
+
+11_test_share_RPC.lua         - пример удаленного вызова функции, должен быть запущен lua_share_server.exe и
+                                в lua_share_server.lua должна быть определена функция  testfunc().

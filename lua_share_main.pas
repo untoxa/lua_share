@@ -12,6 +12,8 @@ const transmission_buffer_size = 512 * 1024; // 512K
       max_transmission_size    = transmission_buffer_size - sizeof(longint);
       max_single_value_size    = 64 * 1024;  // 64K
 
+const max_RPC_timeout          = 10000;      // 10s
+
 const package_name       = 'share';
       datatable_name     = '__default_namespace';
       metatable_name     = '__default_namespace_metatable';
@@ -45,6 +47,7 @@ type  tLuaShare          = class(TLuaClass)
 
         function    DeepCopy(AContext: TLuaContext): integer;
         function    IPCDeepCopy(AContext: TLuaContext): integer;
+        function    RPC(AContext: TLuaContext): integer;
 
         function    GetNameSpace(AContext: TLuaContext): integer;
         function    GetIPCNameSpace(AContext: TLuaContext): integer;
@@ -276,6 +279,35 @@ begin
   end;
 end;
 
+function tLuaShare.RPC(AContext: TLuaContext): integer;
+var function_name  : ansistring;
+    received_len   : longint;
+    temp_buffer    : array[0..max_single_value_size - 1] of ansichar;
+    ssize, i       : longint;
+begin
+  result:= 0;
+  if IPCReady then begin
+    EnterCriticalSection(lua_lock);
+    try
+      ssize:= AContext.StackSize;
+      function_name:= AContext.Stack[1].AsString;
+      if (length(function_name) > 0) then begin
+        fCodec.startcodec(fDataBuffer, max_transmission_size);
+        fCodec.writestring(function_name);
+        fCodec.writenumber(max(0, ssize - 1));
+        for i:= 2 to ssize do
+          stack2buf(AContext.CurrentState, i, fCodec);
+        if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, max_RPC_timeout) then begin
+          fCodec.startcodec(fDataBuffer, received_len);
+          result:= fCodec.readint(0);
+          for i:= 0 to result - 1 do
+            buf2stack(AContext.CurrentState, fCodec, @temp_buffer, sizeof(temp_buffer));
+        end;
+      end;
+    finally LeaveCriticalSection(lua_lock); end;
+  end;
+end;
+
 function tLuaShare.ShowMessageBox(AContext: TLuaContext): integer;
 begin
   with AContext do
@@ -310,6 +342,9 @@ begin
   lua_settable(ALuaState, -3);
     lua_pushstring(ALuaState, 'GetIPCNameSpace');
     PushMethod(ALuaState, GetIPCNameSpace);
+  lua_settable(ALuaState, -3);
+    lua_pushstring(ALuaState, 'RPC');
+    PushMethod(ALuaState, RPC);
   lua_settable(ALuaState, -3);
     lua_pushstring(ALuaState, namespace_item);
     lua_pushstring(ALuaState, ANameSpace);

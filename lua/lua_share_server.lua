@@ -16,6 +16,10 @@ function DumpIPC(ns)
   return ns:DeepCopy()
 end
 
+function testfunc(...)
+  return ...
+end
+
 run = true
 while run do
     run, err = ProcessIPC(100)
