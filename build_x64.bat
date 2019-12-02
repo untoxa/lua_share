@@ -11,3 +11,4 @@ IF NOT DEFINED PROJECT_ROOT (set PROJECT_ROOT=%~dp0.\)
 @del /Q /F %PROJECT_ROOT%\units\*.* >nul
 
 @copy /b /y lua\*.lua %PROJECT_ROOT%\exe\x64\
+@copy /b /y readme.md %PROJECT_ROOT%\exe\x64\
