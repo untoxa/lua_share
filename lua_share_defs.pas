@@ -4,7 +4,7 @@
   {$define MSWINDOWS}
 {$endif}
 
-{__$define release}
+{$define release}
 {$define enable_logging}
 
 {$ifdef release}

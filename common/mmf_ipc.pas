@@ -47,12 +47,12 @@ type  tIPCSendReceive     = class(tObject)
         FEvReadyOut       : THandle;
         FOpened           : boolean;
       protected
-        function    processdata(input: pAnsiChar; inputsize: longint; output: pAnsiChar; var outputsize: longint): boolean; virtual;
+        function    processdata(input: pAnsiChar; inputsize: longint; output: pAnsiChar; var outputsize: longint; aref: pointer): boolean; virtual;
       public
         function    open: boolean; override;
         procedure   close; override;
 
-        function    process(atimeout: longint): boolean;
+        function    process(atimeout: longint; aref: pointer): boolean;
 
         property    opened: boolean read FOpened;
       end;
@@ -158,14 +158,14 @@ begin
   FOpened:= false;
 end;
 
-function tIPCServer.processdata(input: pAnsiChar; inputsize: longint; output: pAnsiChar; var outputsize: longint): boolean;
+function tIPCServer.processdata(input: pAnsiChar; inputsize: longint; output: pAnsiChar; var outputsize: longint; aref: pointer): boolean;
 begin result:= false; end;
 
-function tIPCServer.process(atimeout: longint): boolean;
+function tIPCServer.process(atimeout: longint; aref: pointer): boolean;
 begin
   result:= FOpened;
   if result and (WaitForSingleObject(FEvReadyIn, atimeout) = WAIT_OBJECT_0) then try
-    result:= processdata(fDataIn + sizeof(longint), plongint(fDataIn)^, fDataOut + sizeof(longint), plongint(fDataOut)^);
+    result:= processdata(fDataIn + sizeof(longint), plongint(fDataIn)^, fDataOut + sizeof(longint), plongint(fDataOut)^, aref);
     if not result then plongint(fDataOut)^:= 0;
   finally SetEvent(FEvReadyOut); end;
 end;
