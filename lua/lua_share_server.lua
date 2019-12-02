@@ -1,20 +1,39 @@
+__script_path = './scripts/'
+
+package.path = "./?.lua;./scripts/?.lua"
 package.cpath = "./?.dll;./scripts/?.dll"
-sh = require "lua_share"
+
 rpc = require "lua_share_rpc"
+require "lua_share_boot"
 
 function GetIPC(ns, key)
-    local ns = sh.GetNameSpace(ns)
-    return ns[key]
+    local __ns = _G[ns]
+	if __ns ~= nil then 
+	    return __ns[key]
+	end	
+    return nil
 end
 
 function SetIPC(ns, key, value)
-    local ns = sh.GetNameSpace(ns)
-    ns[key] = value
+    local __ns = _G[ns]
+    if type(__ns) ~= 'table' then
+	    __ns = {}
+	    __ns.__data = {}
+	    setmetatable(__ns, __default_namespace_metatable)
+	    _G[ns] = __ns
+	end
+	__ns[key] = value
 end
 
 function DumpIPC(ns)
-    local ns = sh.GetNameSpace(ns)
-    return ns:DeepCopy()
+    local __ns = _G[ns]
+    if type(__ns) == 'table' then
+	    if getmetatable(__ns) ~= nil then 
+            return __ns.__data
+		else
+		    return __ns
+        end
+    end
 end
 
 function testfunc(...)
