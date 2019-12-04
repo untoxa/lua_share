@@ -13,7 +13,7 @@ lua_share_server.exe, lua-скрипт lua_share_server.lua и rpc-библио�
 --------------
 
 `
-package.cpath = getScriptPath() .. "/?.dll"
+package.cpath = getScriptPath() .. "/?.dll"  
 sh = require "lua_share"
 `
 
@@ -21,7 +21,7 @@ sh = require "lua_share"
 ----------------
 
 `
-sh["hello"] = "world" -- запись
+sh["hello"] = "world" -- запись  
 val = sh["hello"]     -- чтение
 `
 
@@ -29,8 +29,8 @@ val = sh["hello"]     -- чтение
 ------------------
 
 `
-local ns = sh.GetNameSpace("test_name_space")  -- создать пространство имен test_name_space
-ns["hello"] = "world" -- запись 
+local ns = sh.GetNameSpace("test_name_space")  -- создать пространство имен test_name_space  
+ns["hello"] = "world" -- запись  
 val = ns["hello"]     -- чтение
 `
 
@@ -38,9 +38,9 @@ val = ns["hello"]     -- чтение
 -------------------
 
 `
-local ns = sh.GetNameSpace("test_name_space")  -- создать пространство имен test_name_space
-ns["hello"] = "hello" -- 1 значение
-ns["world"] = "world" -- 2 значение
+local ns = sh.GetNameSpace("test_name_space")  -- создать пространство имен test_name_space  
+ns["hello"] = "hello" -- 1 значение  
+ns["world"] = "world" -- 2 значение  
 val = ns:DeepCopy() -- получение снапшота
 `
 
@@ -51,9 +51,9 @@ val = ns:DeepCopy() -- получение снапшота
 используется  сравнение таблиц по содержимому. Например:
 
 `
-local ns = sh.GetNameSpace("test_name_space")
-ns[{1, 2, {3, 4}}] = "JOHN"
-ns[{1, 2, {3, 4}}] = "DOE"
+local ns = sh.GetNameSpace("test_name_space")  
+ns[{1, 2, {3, 4}}] = "JOHN"  
+ns[{1, 2, {3, 4}}] = "DOE"  
 tmp = ns[{1, 2, {3, 4}}]
 `
 
@@ -90,7 +90,7 @@ RPC:
 Тестовая функция testfunc() определена в lua_share_server.lua. Вот пример ее вызова:
 
 `
-local ns = sh.GetIPCNameSpace("test_name_space")
+local ns = sh.GetIPCNameSpace("test_name_space")  
 a, b, c = ns.RPC("testfunc", "a", {1, 2, {3, "b"}})
 `
 
