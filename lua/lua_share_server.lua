@@ -8,30 +8,30 @@ require "lua_share_boot"
 
 function GetIPC(ns, key)
     local __ns = _G[ns]
-	if __ns ~= nil then 
-	    return __ns[key]
-	end	
+        if type(__ns) == 'table' then
+        return __ns[key]
+    end	
     return nil
 end
 
 function SetIPC(ns, key, value)
     local __ns = _G[ns]
     if type(__ns) ~= 'table' then
-	    __ns = {}
-	    __ns.__data = {}
-	    setmetatable(__ns, __default_namespace_metatable)
-	    _G[ns] = __ns
-	end
-	__ns[key] = value
+        __ns = {}
+        __ns.__data = {}
+        setmetatable(__ns, __default_namespace_metatable)
+        _G[ns] = __ns
+    end
+    __ns[key] = value
 end
 
 function DumpIPC(ns)
     local __ns = _G[ns]
     if type(__ns) == 'table' then
-	    if getmetatable(__ns) ~= nil then 
+        if getmetatable(__ns) ~= nil then 
             return __ns.__data
-		else
-		    return __ns
+        else
+            return __ns
         end
     end
 end
