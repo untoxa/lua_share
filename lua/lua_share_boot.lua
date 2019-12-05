@@ -182,6 +182,79 @@ setmetatable(eventlists, {
     end
 })
 
+-- predefined "fixed_queues" namespace implementation
+-- queues with fixed maximum length
+-----------------------------------------------------
+__max_fixed_queue_length = 100
+fixed_queues = {
+    __data = {},
+    __new = function()
+        return {first = 0, last = -1, max_len = __max_fixed_queue_length}
+    end,
+    __push = function(list, value)
+        local last = list.last
+        if last == nil then
+            list.last = 0
+            list.first = 0
+            list.max_len = __max_fixed_queue_length
+            list[0] = value
+        else
+            list.last = last + 1
+            list[last + 1] = value
+            while list.last - list.first > list.max_len do
+              list:__pop()
+            end
+        end
+    end,
+    __pop = function(list)
+        local first = list.first
+        if first == nil then
+            list.last = -1
+            list.first = 0
+            list.max_len = __max_fixed_queue_length
+            return nil
+        end
+        if first > list.last then return nil end
+        local value = list[first]
+        list[first] = nil
+        list.first = first + 1
+        return value
+    end
+}
+
+setmetatable(fixed_queues, {
+    __newindex = function(self, key, value)
+        local idx = nil
+        if type(key)~="table" then
+            idx = key
+        else
+            idx = __findkey(self.__data, key)
+            if idx == nil then idx = key end
+        end
+        local queue = self.__data[idx]
+        if queue == nil then
+            queue = self.__new()
+            self.__data[idx] = queue
+        end;
+        self.__push(queue, value)
+    end,
+    __index = function(self, key)
+        local idx = nil
+        if type(key)~="table" then
+            idx = key
+        else
+            idx = __findkey(self.__data, key)
+        end
+        if idx ~= nil then
+            local queue = self.__data[idx]
+            if queue ~= nil then
+                return self.__pop(queue)
+            end
+        end
+        return nil
+    end
+})
+
 -- predefined "permanent" namespace implementation
 -- namespace with load/save
 --------------------------------------------------
