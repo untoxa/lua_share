@@ -46,17 +46,17 @@ type  tLuaShare          = class(TLuaClass)
         function    __newindex(AContext: TLuaContext): integer;
         function    __IPC_index(AContext: TLuaContext): integer;
         function    __IPC_newindex(AContext: TLuaContext): integer;
+        function    __IPC_call(AContext: TLuaContext): integer;
 
         function    DeepCopy(AContext: TLuaContext): integer;
         function    IPCDeepCopy(AContext: TLuaContext): integer;
-        function    RPC(AContext: TLuaContext): integer;
 
         function    GetNameSpace(AContext: TLuaContext): integer;
         function    GetIPCNameSpace(AContext: TLuaContext): integer;
 
         function    ShowMessageBox(AContext: TLuaContext): integer;
 
-        function    selfregister(ALuaState: TLuaState; ANameSpace: pAnsiChar; adeepcpy, aidx, anewidx: tLuaFunction): integer;
+        function    selfregister(ALuaState: TLuaState; ANameSpace: pAnsiChar; adeepcpy, aidx, anewidx, acall: tLuaFunction): integer;
       end;
 
 function  initialize_share(ALuaInstance: TLuaState): integer;
@@ -183,6 +183,35 @@ begin result:= RPCCallNS(AContext, 'GetIPC', AContext.Stack[1].AsTable[namespace
 function tLuaShare.__IPC_newindex(AContext: TLuaContext): integer;
 begin result:= RPCCallNS(AContext, 'SetIPC', AContext.Stack[1].AsTable[namespace_item].AsString(datatable_name), [2, 3], AContext.Stack[4].AsInteger(max_RPC_timeout)); end;
 
+function tLuaShare.__IPC_call(AContext: TLuaContext): integer;
+var function_name  : ansistring;
+    received_len   : longint;
+    temp_buffer    : array[0..max_single_value_size - 1] of ansichar;
+    ssize, i       : longint;
+begin
+  result:= 0;
+  EnterCriticalSection(lua_lock);
+  try
+    if IPCReady then begin
+      ssize:= AContext.StackSize;                                     // __call(self, function_name, ...)
+      function_name:= AContext.Stack[2].AsString;
+      if (length(function_name) > 0) then begin
+        fCodec.startcodec(fDataBuffer, max_transmission_size);
+        fCodec.writestring(function_name);
+        fCodec.writenumber(max(0, ssize - 2));
+        for i:= 3 to ssize do
+          stack2buf(AContext.CurrentState, i, fCodec);
+        if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, max_RPC_timeout) then begin
+          fCodec.startcodec(fDataBuffer, received_len);
+          result:= fCodec.readint(0);
+          for i:= 0 to result - 1 do
+            buf2stack(AContext.CurrentState, fCodec, @temp_buffer, sizeof(temp_buffer));
+        end;
+      end;
+    end;
+  finally LeaveCriticalSection(lua_lock); end;
+end;
+
 function tLuaShare.DeepCopy(AContext: TLuaContext): integer;
 var namespace_name : ansistring;
 begin
@@ -237,35 +266,6 @@ begin
   finally LeaveCriticalSection(lua_lock); end;
 end;
 
-function tLuaShare.RPC(AContext: TLuaContext): integer;
-var function_name  : ansistring;
-    received_len   : longint;
-    temp_buffer    : array[0..max_single_value_size - 1] of ansichar;
-    ssize, i       : longint;
-begin
-  result:= 0;
-  EnterCriticalSection(lua_lock);
-  try
-    if IPCReady then begin
-      ssize:= AContext.StackSize;
-      function_name:= AContext.Stack[1].AsString;
-      if (length(function_name) > 0) then begin
-        fCodec.startcodec(fDataBuffer, max_transmission_size);
-        fCodec.writestring(function_name);
-        fCodec.writenumber(max(0, ssize - 1));
-        for i:= 2 to ssize do
-          stack2buf(AContext.CurrentState, i, fCodec);
-        if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, max_RPC_timeout) then begin
-          fCodec.startcodec(fDataBuffer, received_len);
-          result:= fCodec.readint(0);
-          for i:= 0 to result - 1 do
-            buf2stack(AContext.CurrentState, fCodec, @temp_buffer, sizeof(temp_buffer));
-        end;
-      end;
-    end;
-  finally LeaveCriticalSection(lua_lock); end;
-end;
-
 function tLuaShare.ShowMessageBox(AContext: TLuaContext): integer;
 begin
   with AContext do
@@ -274,7 +274,7 @@ begin
 end;
 
 function tLuaShare.GetNameSpace(AContext: TLuaContext): integer;
-begin with AContext do result:= selfregister(CurrentState, pAnsiChar(Stack[1].AsString(datatable_name)), DeepCopy, __index, __newindex); end;
+begin with AContext do result:= selfregister(CurrentState, pAnsiChar(Stack[1].AsString(datatable_name)), DeepCopy, __index, __newindex, nil); end;
 
 function tLuaShare.GetIPCNameSpace(AContext: TLuaContext): integer;
 begin
@@ -284,10 +284,10 @@ begin
     if not assigned(fCodec) then fCodec:= tLuaCodec.Create;
     if not assigned(fDataBuffer) then fDataBuffer:= allocmem(transmission_buffer_size);
   finally LeaveCriticalSection(lua_lock); end;
-  with AContext do result:= selfregister(CurrentState, pAnsiChar(Stack[1].AsString(datatable_name)), IPCDeepCopy, __IPC_index, __IPC_newindex);
+  with AContext do result:= selfregister(CurrentState, pAnsiChar(Stack[1].AsString(datatable_name)), IPCDeepCopy, __IPC_index, __IPC_newindex, __IPC_call);
 end;
 
-function tLuaShare.selfregister(ALuaState: TLuaState; ANameSpace: pAnsiChar; adeepcpy, aidx, anewidx: tLuaFunction): integer;
+function tLuaShare.selfregister(ALuaState: TLuaState; ANameSpace: pAnsiChar; adeepcpy, aidx, anewidx, acall: tLuaFunction): integer;
 begin
   lua_newtable(ALuaState);                                            // result table
     lua_pushstring(ALuaState, 'DeepCopy');
@@ -299,9 +299,6 @@ begin
     lua_pushstring(ALuaState, 'GetIPCNameSpace');
     PushMethod(ALuaState, GetIPCNameSpace);
   lua_settable(ALuaState, -3);
-    lua_pushstring(ALuaState, 'RPC');
-    PushMethod(ALuaState, RPC);
-  lua_settable(ALuaState, -3);
     lua_pushstring(ALuaState, namespace_item);
     lua_pushstring(ALuaState, ANameSpace);
   lua_settable(ALuaState, -3);
@@ -312,6 +309,11 @@ begin
       lua_pushstring(ALuaState, '__newindex');
       PushMethod(ALuaState, anewidx);
     lua_settable(ALuaState, -3);
+    if assigned(acall) then begin
+        lua_pushstring(ALuaState, '__call');
+        PushMethod(ALuaState, acall);
+      lua_settable(ALuaState, -3);
+    end;
   lua_setmetatable(ALuaState, -2);
   result:= 1;
 end;
@@ -383,7 +385,7 @@ begin
     end else messagebox(0, pAnsiChar(format('Failed to find LUA library: %s', [lua_supported_libs[low(lua_supported_libs)]])), msgbox_err_title, MB_ICONERROR);
   end;
   if assigned(lua_share_instance) then begin
-    with lua_share_instance do result:= selfregister(ALuaInstance, datatable_name, DeepCopy, __index, __newindex);
+    with lua_share_instance do result:= selfregister(ALuaInstance, datatable_name, DeepCopy, __index, __newindex, nil);
     // register result table as a global variable:
     lua_pushvalue(ALuaInstance, -1);
     lua_setglobal(ALuaInstance, package_name);

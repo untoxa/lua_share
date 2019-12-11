@@ -91,7 +91,7 @@ RPC:
 
 `
 local ns = sh.GetIPCNameSpace("test_name_space")  
-a, b, c = ns.RPC("testfunc", "a", {1, 2, {3, "b"}})
+a, b, c = ns("testfunc", "a", {1, 2, {3, "b"}}) -- просто вызываем IPC неймспейс как функцию
 `
 
 pre-defined пространства:
