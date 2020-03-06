@@ -24,6 +24,7 @@ type  TLuaState          = Lua_State;
         fString          : ansistring;
         fTable           : TLuaTable;
         fIndex           : integer;
+        fPointer         : pointer;
 
         function    getabsindex(AIndex: integer): integer;
         function    fExtractField(AIndex: integer): TLuaField;
@@ -35,9 +36,12 @@ type  TLuaState          = Lua_State;
         function    AsInteger(const adefault: int64 = 0): int64;
         function    AsNumber(const adefault: double = 0.0): double;
         function    AsString(const adefault: ansistring = ''): ansistring;
+        function    AsUserData: pointer;
         function    AsTable: TLuaTable;
 
         function    IsFunction: boolean;
+        function    IsLightUserData: boolean;
+        function    IsUserData: boolean;
         function    IsTable: boolean;
 
         property    FieldType: integer read fFieldType;
@@ -194,18 +198,20 @@ var len : cardinal;
 begin
   fFieldType:= lua_type(fContext.CurrentState, AIndex);
   case fFieldType of
-    LUA_TNUMBER   : fNumber := lua_tonumber(fContext.CurrentState, AIndex);
-    LUA_TBOOLEAN  : fBool := lua_toboolean(fContext.CurrentState, AIndex);
-    LUA_TSTRING   : begin
-                      len:= 0;
-                      SetString(fString, lua_tolstring(fContext.CurrentState, AIndex, len), len);
-                    end;
-    LUA_TTABLE    : begin
-                      if not assigned(fTable) then fTable:= TLuaTable.create(fContext, AIndex)
-                                              else fTable.Index:= AIndex;
-                    end;
-    LUA_TFUNCTION : fIndex:= getabsindex(aindex);
-    else            fFieldType:= LUA_TNONE;
+    LUA_TNUMBER        : fNumber := lua_tonumber(fContext.CurrentState, AIndex);
+    LUA_TBOOLEAN       : fBool := lua_toboolean(fContext.CurrentState, AIndex);
+    LUA_TSTRING        : begin
+                           len:= 0;
+                           SetString(fString, lua_tolstring(fContext.CurrentState, AIndex, len), len);
+                         end;
+    LUA_TUSERDATA,                     
+    LUA_TLIGHTUSERDATA : fPointer:= lua_touserdata(fContext.CurrentState, AIndex);
+    LUA_TTABLE         : begin
+                           if not assigned(fTable) then fTable:= TLuaTable.create(fContext, AIndex)
+                                                   else fTable.Index:= AIndex;
+                         end;
+    LUA_TFUNCTION      : fIndex:= getabsindex(aindex);
+    else                 fFieldType:= LUA_TNONE;
   end;
   result:= Self;
 end;
@@ -257,6 +263,15 @@ begin
   end;
 end;
 
+function TLuaField.AsUserData: pointer;
+begin
+  case fFieldType of
+    LUA_TUSERDATA,
+    LUA_TLIGHTUSERDATA: result:= fPointer;
+    else                result:= nil;
+  end;
+end;
+
 function TLuaField.AsTable: TLuaTable;
 begin
   if (fFieldType = LUA_TTABLE) then result:= fTable
@@ -265,6 +280,12 @@ end;
 
 function TLuaField.IsFunction: boolean;
 begin result:= (fFieldType = LUA_TFUNCTION); end;
+
+function TLuaField.IsUserData: boolean;
+begin result:= (fFieldType = LUA_TUSERDATA); end;
+
+function TLuaField.IsLightUserData: boolean;
+begin result:= (fFieldType = LUA_TLIGHTUSERDATA); end;
 
 function TLuaField.IsTable: boolean;
 begin result:= (fFieldType = LUA_TTABLE); end;

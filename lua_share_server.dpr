@@ -126,7 +126,7 @@ var   hLib           : HMODULE;
       trd            : tRunnerThread;
       i              : longint;
 begin
-  result:= false;
+  result:= true;
   if ((CtrlType >= low(reasons)) and (CtrlType <= high(reasons))) then
     writeln(format('shutting down... reason: %s code: %d', [reasons[CtrlType], CtrlType]));
   // signal rpc library to terminate
@@ -144,6 +144,7 @@ begin
         if assigned(trd) then trd.terminate;
       end;
     finally runner_list.unlocklist; end;
+  if (CtrlType = 1) then halt; // force kill with ctrl-break
 end;
 
 const hLib            : HMODULE         = 0;
