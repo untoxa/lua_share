@@ -5,7 +5,7 @@ unit lua_share_rpc_main;
 interface
 
 uses  windows, sysutils, math,
-      LuaLib, LuaHelpers,
+      LuaLib53, LuaHelpers,
       lua_buffers, mmf_ipc;
 
 const transmission_buffer_size = 512 * 1024; // 512K
@@ -15,7 +15,7 @@ const global_mutex_name  = '{F58C5448-FB40-4808-9128-D0BC99705E1E}';
 
 const package_name       = 'lua_share_rpc';
 
-const lua_supported_libs : array[0..1] of pAnsiChar = ('Lua5.1.dll', 'qlua.dll');
+const lua_supported_libs : array[0..0] of pAnsiChar = ('Lua53.dll');
 
 type  tLuaRPCServer      = class;
 
@@ -99,6 +99,7 @@ var buffer        : array[0..16384] of ansichar;
     luastate      : TLuaState;
     ssize, len, i : longint;
     tmpd          : double;
+    slen          : size_t;
 begin
   result:= assigned(aref) and assigned(fcodec);
   if result then begin
@@ -128,7 +129,7 @@ begin
           lua_pop(luastate, len);              // pop results from stack
         end else begin
           len:= 0;
-          SetString(fLastError, lua_tolstring(luastate, -1, cardinal(len)), len);
+          SetString(fLastError, lua_tolstring(luastate, -1, slen), slen);
           lua_pop(luastate, 1);
         end;
       end else begin

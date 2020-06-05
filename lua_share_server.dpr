@@ -3,9 +3,11 @@
 program lua_share_server;
 
 uses  windows, classes, sysutils,
-      LuaLib, LuaHelpers;
+      LuaLib53, LuaHelpers;
 
-const platform_string              = {$ifdef CPUX64} 'x64' {$else} 'x86' {$endif};
+const platform_string = {$ifdef CPUX64} 'x64' {$else} 'x86' {$endif};
+
+const lua_lib_name    = 'lua53.dll';
 
 type  tRunnerThread = class;
 
@@ -95,21 +97,23 @@ procedure tRunnerThread.execute;
 var api : tRunnerApi;
     err : ansistring;
 begin
-  freeonterminate:= false;
-  fluastate:= luaL_newstate;
-  luaL_openlibs(fluastate);
   try
-    api:= tRunnerApi.create(flualib, Self);
+    freeonterminate:= false;
+    fluastate:= luaL_newstate;
+    luaL_openlibs(fluastate);
     try
-      with api do begin
-        RegisterGlobalMethod(fluastate, 'Terminated', Terminated);
-        RegisterGlobalMethod(fluastate, 'RunThread', RunThread);
-      end;
-      with TLuaContext.create(fluastate) do try
-        if not ExecuteFileSafe(ffilename, 0, err) then writeln('error: script loading failed: ', err);
-      finally free; end;
-    finally freeandnil(api); end;  
-  finally lua_close(fluastate) end;
+      api:= tRunnerApi.create(flualib, Self);
+      try
+        with api do begin
+          RegisterGlobalMethod(fluastate, 'Terminated', Terminated);
+          RegisterGlobalMethod(fluastate, 'RunThread', RunThread);
+        end;
+        with TLuaContext.create(fluastate) do try
+          if not ExecuteFileSafe(ffilename, 0, err) then writeln('error: script loading failed: ', err);
+        finally free; end;
+      finally freeandnil(api); end;
+    finally lua_close(fluastate) end;
+  except on e: exception do writeln(format('RUNNER EXCEPTION: %s', [e.message])); end;
 end;
 
 { main }
@@ -158,7 +162,7 @@ begin
   writeln('IPC ', platform_string, ' server started');
   fname:= expandfilename(changefileext(get_module_name(HInstance), '.lua'));
   if fileexists(fname) then begin
-    hLib:= LoadLuaLib('lua5.1.dll');
+    hLib:= LoadLuaLib(lua_lib_name);
     if (hLib <> 0) then begin
       runner_list:= tRunnerList.create;
       try
@@ -174,6 +178,6 @@ begin
         until not assigned(trd);
       finally freeandnil(runner_list); end;
       writeln('done!');
-    end else writeln('error: unable to load lua5.1.dll');
+    end else writeln('error: unable to load ' + lua_lib_name);
   end else writeln('error: filename "', fname, '" not found!');
 end.

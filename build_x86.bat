@@ -1,4 +1,7 @@
 @echo off
+@echo FPC x86 compiling disabled
+@goto :eof
+
 IF NOT DEFINED PROJECT_ROOT (set PROJECT_ROOT=%~dp0.\)
 
 @del /Q /F %PROJECT_ROOT%\units\*.* >nul

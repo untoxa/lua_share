@@ -5,7 +5,7 @@ unit lua_share_main;
 interface
 
 uses  windows, classes, sysutils, math,
-      LuaLib, LuaHelpers,
+      LuaLib53, LuaHelpers,
       lua_buffers, mmf_ipc;
 
 const transmission_buffer_size = 512 * 1024; // 512K
@@ -24,7 +24,7 @@ const package_name       = 'share';
       def_msgbox_title   = 'Lua_share';
       msgbox_err_title   = 'Lua_share ERROR';
 
-const lua_supported_libs : array[0..1] of pAnsiChar = ('Lua5.1.dll', 'qlua.dll');
+const lua_supported_libs : array[0..0] of pAnsiChar = ('Lua53.dll');
 
 type  tLuaShare          = class(TLuaClass)
       private
@@ -93,11 +93,12 @@ begin
 end;
 
 procedure tLuaShare.__deepcopy(sour, dest: TLuaState);
-var len : cardinal;
+var len : size_t;
 begin
   case lua_type(sour, -1) of
     LUA_TBOOLEAN : lua_pushboolean(dest, lua_toboolean(sour, -1));
-    LUA_TNUMBER  : lua_pushnumber(dest, lua_tonumber(sour, -1));
+    LUA_TNUMBER  : if lua_isinteger(sour, -1) then lua_pushinteger(dest, lua_tointeger(sour, -1))
+                                              else lua_pushnumber(dest, lua_tonumber(sour, -1));
     LUA_TSTRING  : lua_pushstring(dest, lua_tolstring(sour, -1, len));
     LUA_TTABLE   : begin
                      lua_newtable(dest);
@@ -223,7 +224,7 @@ begin
         namespace_name:= Stack[1].AsTable[namespace_item].AsString(datatable_name);
         lua_getglobal(lua_storage_state, pAnsiChar(namespace_name));
         if (lua_type(lua_storage_state, -1) = LUA_TTABLE) then begin
-          if lua_getmetatable(lua_storage_state, -1) then begin       // if metatable defined, then we have a __data container
+          if (lua_getmetatable(lua_storage_state, -1) = 1) then begin // if metatable defined, then we have a __data container
              lua_pop(lua_storage_state, 1);                           // dont need metatable, only check if exists
              lua_pushstring(lua_storage_state, data_item);
              lua_gettable(lua_storage_state, -2);                     // get __data table from namespace container
@@ -322,9 +323,9 @@ end;
 
 function LuaAtPanic(astate: Lua_State): Integer; cdecl;
 var err: ansistring;
+    len: size_t;
 begin
-  result:= 0;
-  SetString(err, lua_tolstring(astate, -1, cardinal(result)), result);
+  SetString(err, lua_tolstring(astate, -1, len), len);
   raise Exception.CreateFmt('LUA ERROR: %s', [err]);
 end;
 
@@ -358,7 +359,7 @@ begin
       InitializeLuaLib(hLib);
       // initialize lua storage state:
       if not assigned(lua_storage_state) then begin
-        lua_storage_state:= luaL_newstate;
+        lua_storage_state:= luaL_newstate();
         if assigned(lua_storage_state) then begin
           lua_atpanic(lua_storage_state, LuaAtPanic);
           luaL_openlibs(lua_storage_state);

@@ -3,9 +3,11 @@ unit lua_buffers;
 interface
 
 uses  windows, math, 
-      LuaLib;
+      LuaLib53;
 
-type  tLuaCodec   = class(tObject)
+const LUA_TINTEGER  =  LUA_NUMTAGS + 1;
+
+type  tLuaCodec     = class(tObject)
       private
         fbuffer     : pAnsiChar;
         fbufstart   : pAnsiChar;
@@ -19,6 +21,7 @@ type  tLuaCodec   = class(tObject)
         function  readint(adef: longint): longint;
         function  write(atype: longint; avalue: pAnsiChar; alen: longint): boolean;
         function  writenumber(const avalue: double): boolean;
+        function  writeinteger(const avalue: int64): boolean;
         function  writestring(const avalue: ansistring): boolean;
         function  writeboolean(avalue: boolean): boolean;
         function  stopcodec: longint;
@@ -74,6 +77,11 @@ begin
                                 end;
                                 inc(fbuffer, slen);
                               end else result:= LUA_TNONE;
+      LUA_TINTEGER          : if check_size(sizeof(int64)) and (amaxlen >= sizeof(int64)) then begin
+                                pint64(avalue)^:= pint64(fbuffer)^;
+                                alen:= sizeof(int64);
+                                inc(fbuffer, alen);
+                              end else result:= LUA_TNONE;
       LUA_TTABLE, LUA_TNONE : ;
       else                    result:= LUA_TNIL;
     end;
@@ -82,11 +90,16 @@ end;
 
 function tLuaCodec.readint(adef: longint): longint;
 var tmpd : double;
+    tmpi : int64;
     len  : longint;
 begin
   if (peek = LUA_TNUMBER) then begin
     read(@tmpd, sizeof(tmpd), len);
     result:= round(tmpd);
+  end else
+  if (peek = LUA_TINTEGER) then begin
+    read(@tmpi, sizeof(tmpi), len);
+    result:= tmpi;
   end else result:= adef;
 end;
 
@@ -111,6 +124,10 @@ begin
                         system.move(avalue^, fbuffer^, alen);
                         inc(fbuffer, alen);
                       end;
+      LUA_TINTEGER  : begin
+                        pint64(fbuffer)^:= pint64(avalue)^;
+                        inc(fbuffer, sizeof(int64));
+                      end;
     end;
   end;
 end;
@@ -120,6 +137,9 @@ begin result:= write(LUA_TBOOLEAN, @avalue, sizeof(avalue)); end;
 
 function tLuaCodec.writenumber(const avalue: double): boolean;
 begin result:= write(LUA_TNUMBER, @avalue, sizeof(avalue)); end;
+
+function tLuaCodec.writeinteger(const avalue: int64): boolean;
+begin result:= write(LUA_TINTEGER, @avalue, sizeof(avalue)); end;
 
 function tLuaCodec.writestring(const avalue: ansistring): boolean;
 begin result:= write(LUA_TSTRING, pAnsiChar(avalue), length(avalue)); end;
@@ -145,6 +165,7 @@ begin
                      end;
                      acodec.read(abuf, abufsize, len); // read table terminator
                    end;
+    LUA_TINTEGER : lua_pushinteger(astate, pint64(abuf)^);
     else           lua_pushnil(astate);
   end;
 end;
@@ -152,17 +173,21 @@ end;
 procedure stack2buf(astate: Lua_State; aindex: longint; acodec: tLuaCodec);
 var tmpb : longbool;
     tmpd : double;
+    tmpi : int64;
     tmps : pAnsiChar;
-    len  : cardinal;
+    len  : size_t;
 begin
   case lua_type(astate, aindex) of
     LUA_TBOOLEAN : begin
                      tmpb:= lua_toboolean(astate, aindex);
                      acodec.write(LUA_TBOOLEAN, @tmpb, sizeof(tmpb));
                    end;
-    LUA_TNUMBER  : begin
+    LUA_TNUMBER  : if lua_isinteger(astate, aindex) then begin
                      tmpd:= lua_tonumber(astate, aindex);
                      acodec.write(LUA_TNUMBER, @tmpd, sizeof(tmpd));
+                   end else begin
+                     tmpi:= lua_tointeger(astate, aindex);
+                     acodec.write(LUA_TINTEGER, @tmpi, sizeof(tmpi));
                    end;
     LUA_TSTRING  : begin
                      tmps:= lua_tolstring(astate, aindex, len);

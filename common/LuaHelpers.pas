@@ -3,7 +3,7 @@ unit LuaHelpers;
 interface
 
 uses  windows, classes, sysutils,
-      LuaLib;
+      LuaLib53;
 
 const LUA_TANY           = LUA_TNONE;
 
@@ -20,6 +20,8 @@ type  TLuaState          = Lua_State;
         fContext         : TLuaContext;
         fFieldType       : integer;
         fNumber          : double;
+        fInteger         : int64;
+        fIsInteger       : boolean;
         fBool            : boolean;
         fString          : ansistring;
         fTable           : TLuaTable;
@@ -43,6 +45,7 @@ type  TLuaState          = Lua_State;
         function    IsLightUserData: boolean;
         function    IsUserData: boolean;
         function    IsTable: boolean;
+        function    IsInteger: boolean;
 
         property    FieldType: integer read fFieldType;
         property    FieldByName[AIndex: integer; const AName: ansistring]: TLuaField read fGetField; default;
@@ -176,6 +179,8 @@ begin
   fTable:= nil;
   fFieldType:= LUA_TNONE;
   fNumber:= 0;
+  fInteger:= 0;
+  fIsInteger:= false;
   fBool:= false;
   setlength(fString, 0);
 end;
@@ -187,18 +192,23 @@ begin
 end;
 
 function TLuaField.getabsindex(AIndex: integer): integer;
-begin
-  if ((AIndex = LUA_GLOBALSINDEX) or (AIndex = LUA_REGISTRYINDEX)) then result := AIndex
-  else if (AIndex < 0) then result := AIndex + lua_gettop(fContext.CurrentState) + 1
-  else result := AIndex;
-end;
+begin result:= lua_absindex(fContext.CurrentState, AIndex); end;
 
 function TLuaField.fExtractField(AIndex: integer): TLuaField;
-var len : cardinal;
+var len : size_t;
 begin
   fFieldType:= lua_type(fContext.CurrentState, AIndex);
   case fFieldType of
-    LUA_TNUMBER        : fNumber := lua_tonumber(fContext.CurrentState, AIndex);
+    LUA_TNUMBER        : begin
+                           fIsInteger:= lua_isinteger(fContext.CurrentState, AIndex);
+                           if fIsInteger then begin
+                              fInteger := lua_tointeger(fContext.CurrentState, AIndex);
+                              fNumber  := fInteger;
+                           end else begin
+                              fNumber  := lua_tonumber(fContext.CurrentState, AIndex);
+                              fInteger := Round(fNumber); 
+                           end;
+                         end;
     LUA_TBOOLEAN       : fBool := lua_toboolean(fContext.CurrentState, AIndex);
     LUA_TSTRING        : begin
                            len:= 0;
@@ -233,20 +243,27 @@ function TLuaField.AsBoolean(const adefault: boolean): boolean;
 begin
   case fFieldType of
     LUA_TBOOLEAN : result:= fBool;
-    LUA_TNUMBER  : result:= (fNumber <> 0);
+    LUA_TNUMBER  : if fIsInteger then result:= (fInteger <> 0)
+                                 else result:= (fNumber <> 0);
     LUA_TSTRING  : result:= (AnsiCompareText(fString, 'TRUE') = 0);
     else           result:= adefault;
   end;
 end;
 
 function TLuaField.AsInteger(const adefault: int64): int64;
-begin result:= round(AsNumber(adefault)); end;
+begin
+  if (fFieldType = LUA_TNUMBER) then begin
+    if fIsInteger then result:= fInteger
+                  else result:= round(AsNumber(adefault));
+  end else result:= adefault;                
+end;
 
 function TLuaField.AsNumber(const adefault: double): double;
 begin
   case fFieldType of
     LUA_TBOOLEAN : result:= integer(fBool);
-    LUA_TNUMBER  : result:= fNumber;
+    LUA_TNUMBER  : if fIsInteger then result:= fInteger
+                                 else result:= fNumber;
     LUA_TSTRING  : result:= StrToFloatDef(fString, adefault);
     else           result:= adefault;
   end;
@@ -257,7 +274,8 @@ const boolval : array[boolean] of ansistring = ('FALSE', 'TRUE');
 begin
   case fFieldType of
     LUA_TBOOLEAN : result:= boolval[fBool];
-    LUA_TNUMBER  : result:= FloatToStr(fNumber);
+    LUA_TNUMBER  : if fIsInteger then result:= IntToStr(fInteger)
+                                 else result:= FloatToStr(fNumber);
     LUA_TSTRING  : result:= fString;
     else           result:= adefault;
   end;
@@ -289,6 +307,9 @@ begin result:= (fFieldType = LUA_TLIGHTUSERDATA); end;
 
 function TLuaField.IsTable: boolean;
 begin result:= (fFieldType = LUA_TTABLE); end;
+
+function TLuaField.IsInteger: boolean;
+begin result:= ((fFieldType = LUA_TNUMBER) and fIsInteger); end;
 
 { TLuaTable }
 
@@ -364,11 +385,7 @@ begin
 end;
 
 function TLuaTable.getabsindex(AIndex: integer): integer;
-begin
-  if ((AIndex = LUA_GLOBALSINDEX) or (AIndex = LUA_REGISTRYINDEX)) then result := AIndex
-  else if (AIndex < 0) then result := AIndex + lua_gettop(fContext.CurrentState) + 1
-  else result := AIndex;
-end;
+begin result:= lua_absindex(fContext.CurrentState, AIndex); end;
 
 procedure TLuaTable.fSetIndex(AIndex: integer);
 begin fIndex:= getabsindex(AIndex); end;
@@ -422,7 +439,7 @@ begin
 end;
 
 function TLuaTable.CallMethodSafe(const AName: ansistring; const AArgs: array of const; AResCount: integer; var error: ansistring; AResType: integer): boolean;
-var len: cardinal;
+var len: size_t;
 begin
   if (AResCount < 0) then AResCount:= LUA_MULTRET;
   lua_pushstring(fContext.CurrentState, pAnsiChar(AName));
@@ -589,7 +606,7 @@ begin
 end;
 
 function TLuaContext.CallSafe(const AName: ansistring; const AArgs: array of const; AResCount: integer; var error: ansistring; AResType: integer): boolean;
-var len: cardinal;
+var len: size_t;
 begin
   if (AResCount < 0) then AResCount:= LUA_MULTRET;
   lua_getglobal(fLuaState, pAnsiChar(AName));                                // get function index
@@ -617,7 +634,7 @@ function TLuaContext.CallSafe(const AName: ansistring; const AArgs: array of con
 begin result:= CallSafe(AName, aargs, AResCount, error, LUA_TANY); end;
 
 function TLuaContext.CallSafe(const AName: ansistring; aargs: tStringList; AResCount: integer; var error: ansistring; AResType: integer): boolean;
-var len: cardinal;
+var len: size_t;
 begin
   if (AResCount < 0) then AResCount:= LUA_MULTRET;
   lua_getglobal(fLuaState, pAnsiChar(AName));                                // get function index
@@ -645,7 +662,7 @@ function TLuaContext.CallSafe(const AName: ansistring; aargs: tStringList; AResC
 begin result:= CallSafe(AName, aargs, AResCount, error, LUA_TANY); end;
 
 function TLuaContext.ExecuteSafe(const AScript: ansistring; AResCount: integer; var error: ansistring): boolean;
-var len: cardinal;
+var len: size_t;
 begin
   result:= (luaL_loadstring(fLuaState, pAnsiChar(AScript)) = 0);
   if result then begin
@@ -660,7 +677,7 @@ begin
 end;
 
 function TLuaContext.ExecuteFileSafe(const AFileName: ansistring; AResCount: integer; var error: ansistring): boolean;
-var len: cardinal;
+var len: size_t;
 begin
   result:= (luaL_loadfile(fLuaState, pAnsiChar(AFileName)) = 0);
   if result then begin

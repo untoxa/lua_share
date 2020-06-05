@@ -3,6 +3,7 @@
 /units
 /backup
 /release
+/unused
 *.bak
 *.dof
 *.dsk
