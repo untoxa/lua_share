@@ -183,11 +183,11 @@ begin
                      acodec.write(LUA_TBOOLEAN, @tmpb, sizeof(tmpb));
                    end;
     LUA_TNUMBER  : if lua_isinteger(astate, aindex) then begin
-                     tmpd:= lua_tonumber(astate, aindex);
-                     acodec.write(LUA_TNUMBER, @tmpd, sizeof(tmpd));
-                   end else begin
                      tmpi:= lua_tointeger(astate, aindex);
                      acodec.write(LUA_TINTEGER, @tmpi, sizeof(tmpi));
+                   end else begin
+                     tmpd:= lua_tonumber(astate, aindex);
+                     acodec.write(LUA_TNUMBER, @tmpd, sizeof(tmpd));
                    end;
     LUA_TSTRING  : begin
                      tmps:= lua_tolstring(astate, aindex, len);
