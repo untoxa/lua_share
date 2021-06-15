@@ -181,7 +181,7 @@ end;
 
 function tLuaShare.__call(AContext: TLuaContext): integer;
 var namespace_name   : ansistring;
-    ssize, i         : longint;
+    ssize, i, dsize  : longint;
 begin
   result:= 0;
   if assigned(lua_storage_state) then try
@@ -189,6 +189,7 @@ begin
     try
       with AContext do begin
         ssize:= AContext.StackSize;
+        dsize:= lua_gettop(lua_storage_state);
 
         namespace_name:= Stack[1].AsTable[namespace_item].AsString(datatable_name);
         lua_getglobal(lua_storage_state, pAnsiChar(namespace_name));
@@ -196,8 +197,8 @@ begin
         for i:= 2 to ssize do __deepcopyvalue(CurrentState, lua_storage_state, i);
 
         if (lua_pcall(lua_storage_state, ssize - 1, LUA_MULTRET, 0) = 0) then begin
-          result:= lua_gettop(lua_storage_state);
-          for i:= 1 to result do __deepcopyvalue(lua_storage_state, CurrentState, i);
+          result:= lua_gettop(lua_storage_state) - dsize;
+          for i:= result downto 1 do __deepcopyvalue(lua_storage_state, CurrentState, -i);
           lua_pop(lua_storage_state, result);
         end else begin
           // raise error here? suppress any errors by now
