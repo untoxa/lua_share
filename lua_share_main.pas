@@ -44,6 +44,7 @@ type  tLuaShare          = class(TLuaClass)
 
         function    __index(AContext: TLuaContext): integer;
         function    __newindex(AContext: TLuaContext): integer;
+        function    __call(AContext: TLuaContext): integer;
         function    __IPC_index(AContext: TLuaContext): integer;
         function    __IPC_newindex(AContext: TLuaContext): integer;
         function    __IPC_call(AContext: TLuaContext): integer;
@@ -178,6 +179,36 @@ begin
   result:= 0;
 end;
 
+function tLuaShare.__call(AContext: TLuaContext): integer;
+var namespace_name   : ansistring;
+    ssize, i         : longint;
+begin
+  result:= 0;
+  if assigned(lua_storage_state) then try
+    EnterCriticalSection(lua_lock);
+    try
+      with AContext do begin
+        ssize:= AContext.StackSize;
+
+        namespace_name:= Stack[1].AsTable[namespace_item].AsString(datatable_name);
+        lua_getglobal(lua_storage_state, pAnsiChar(namespace_name));
+
+        for i:= 2 to ssize do __deepcopyvalue(CurrentState, lua_storage_state, i);
+
+        if (lua_pcall(lua_storage_state, ssize - 1, LUA_MULTRET, 0) = 0) then begin
+          result:= lua_gettop(lua_storage_state);
+          for i:= 1 to result do __deepcopyvalue(lua_storage_state, CurrentState, i);
+          lua_pop(lua_storage_state, result);
+        end else begin
+          // raise error here? suppress any errors by now
+          // get error example: lua_tolstring(lua_storage_state, -1, slen)
+          lua_pop(lua_storage_state, 1); // dispose error message
+        end;
+      end;
+    finally LeaveCriticalSection(lua_lock); end;
+  except on e: exception do messagebox(0, pAnsiChar(e.message), msgbox_err_title, MB_ICONERROR); end;
+end;
+
 function tLuaShare.__IPC_index(AContext: TLuaContext): integer;
 begin result:= RPCCallNS(AContext, 'GetIPC', AContext.Stack[1].AsTable[namespace_item].AsString(datatable_name), [2], AContext.Stack[3].AsInteger(max_RPC_timeout)); end;
 
@@ -275,7 +306,7 @@ begin
 end;
 
 function tLuaShare.GetNameSpace(AContext: TLuaContext): integer;
-begin with AContext do result:= selfregister(CurrentState, pAnsiChar(Stack[1].AsString(datatable_name)), DeepCopy, __index, __newindex, nil); end;
+begin with AContext do result:= selfregister(CurrentState, pAnsiChar(Stack[1].AsString(datatable_name)), DeepCopy, __index, __newindex, __call); end;
 
 function tLuaShare.GetIPCNameSpace(AContext: TLuaContext): integer;
 begin
@@ -325,6 +356,7 @@ function LuaAtPanic(astate: Lua_State): Integer; cdecl;
 var err: ansistring;
     len: size_t;
 begin
+  result:= 0;
   SetString(err, lua_tolstring(astate, -1, len), len);
   raise Exception.CreateFmt('LUA ERROR: %s', [err]);
 end;
@@ -386,7 +418,7 @@ begin
     end else messagebox(0, pAnsiChar(format('Failed to find LUA library: %s', [lua_supported_libs[low(lua_supported_libs)]])), msgbox_err_title, MB_ICONERROR);
   end;
   if assigned(lua_share_instance) then begin
-    with lua_share_instance do result:= selfregister(ALuaInstance, datatable_name, DeepCopy, __index, __newindex, nil);
+    with lua_share_instance do result:= selfregister(ALuaInstance, datatable_name, DeepCopy, __index, __newindex, __call);
     // register result table as a global variable:
     lua_pushvalue(ALuaInstance, -1);
     lua_setglobal(ALuaInstance, package_name);

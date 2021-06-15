@@ -54,6 +54,9 @@ __default_namespace_metatable = {
             if idx then return self.__data[idx] end
         end
         return nil
+    end,
+    __call = function(self, ...)
+        return ...
     end
 }
 
