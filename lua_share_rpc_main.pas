@@ -111,29 +111,23 @@ begin
       ssize:= lua_gettop(luastate);            // saving stack size before call
 
       lua_getglobal(luastate, pAnsiChar(fname));
-      result:= (lua_type(luastate, -1) = LUA_TFUNCTION);
-      if result then begin
-        if (fcodec.read(@buffer, sizeof(buffer), len) = LUA_TNUMBER) then argcount:= round(pdouble(@buffer)^)
-                                                                     else argcount:= 0;
-        for i:= 0 to argcount - 1 do
-          buf2stack(luastate, fcodec, @buffer, sizeof(buffer));
+      if (fcodec.read(@buffer, sizeof(buffer), len) = LUA_TNUMBER) then argcount:= round(pdouble(@buffer)^)
+                                                                   else argcount:= 0;
+      for i:= 0 to argcount - 1 do
+        buf2stack(luastate, fcodec, @buffer, sizeof(buffer));
 
-        result:= (lua_pcall(luastate, argcount, LUA_MULTRET, 0) = 0);
-        if result then begin
-          len:= lua_gettop(luastate) - ssize;  // len contains number of results returned
-          fcodec.startcodec(output, fServer.maxdatalen);
-          tmpd:= len; fcodec.write(LUA_TNUMBER, @tmpd, sizeof(tmpd));
-          for i:= len downto 1 do
-            stack2buf(luastate, - i, fcodec);
-          outputsize:= fcodec.stopcodec;
-          lua_pop(luastate, len);              // pop results from stack
-        end else begin
-          len:= 0;
-          SetString(fLastError, lua_tolstring(luastate, -1, slen), slen);
-          lua_pop(luastate, 1);
-        end;
+      result:= (lua_pcall(luastate, argcount, LUA_MULTRET, 0) = 0);
+      if result then begin
+        len:= lua_gettop(luastate) - ssize;  // len contains number of results returned
+        fcodec.startcodec(output, fServer.maxdatalen);
+        tmpd:= len; fcodec.write(LUA_TNUMBER, @tmpd, sizeof(tmpd));
+        for i:= len downto 1 do
+          stack2buf(luastate, - i, fcodec);
+        outputsize:= fcodec.stopcodec;
+        lua_pop(luastate, len);              // pop results from stack
       end else begin
-        fLastError:= format('%s is not a function!', [fname]);
+        len:= 0;
+        SetString(fLastError, lua_tolstring(luastate, -1, slen), slen);
         lua_pop(luastate, 1);
       end;
     end else fLastError:= 'IPC buffer error!';

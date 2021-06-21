@@ -36,10 +36,6 @@ function DumpIPC(ns)
     end
 end
 
-function testfunc(...)
-    return ...
-end
-
 run = true
 
 function main()

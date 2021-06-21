@@ -35,6 +35,6 @@ end
 function main()
     local ns = sh.GetIPCNameSpace("test_name_space")
 
-    local a, b, c = ns("testfunc", "a", {1, 2, {3, "b"}}) -- just call IPC namespace as function
+    local a, b, c = ns("a", {1, 2, {3, "b"}}, 56.7) -- just call IPC namespace as function
     message("a = " .. tostring(a) .. " b = " .. table.tostring(b) .. " c = " .. tostring(c), 1)
 end

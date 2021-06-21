@@ -226,13 +226,13 @@ begin
   EnterCriticalSection(lua_lock);
   try
     if IPCReady then begin
-      ssize:= AContext.StackSize;                                     // __call(self, function_name, ...)
-      function_name:= AContext.Stack[2].AsString;
+      ssize:= AContext.StackSize;                                     // __call(self, ...)
+      function_name:= AContext.Stack[1].AsTable[namespace_item].AsString(datatable_name);
       if (length(function_name) > 0) then begin
         fCodec.startcodec(fDataBuffer, max_transmission_size);
         fCodec.writestring(function_name);
-        fCodec.writenumber(max(0, ssize - 2));
-        for i:= 3 to ssize do
+        fCodec.writenumber(max(0, ssize - 1));
+        for i:= 2 to ssize do
           stack2buf(AContext.CurrentState, i, fCodec);
         if fIPCClient.send_receive(fDataBuffer, fCodec.stopcodec, fDataBuffer, received_len, max_RPC_timeout) then begin
           fCodec.startcodec(fDataBuffer, received_len);
