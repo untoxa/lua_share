@@ -3,9 +3,9 @@ unit lua_buffers;
 interface
 
 uses  windows, math, 
-      LuaLib53;
+      LuaLib54;
 
-const LUA_TINTEGER  =  LUA_NUMTAGS + 1;
+const LUA_TINTEGER  =  LUA_NUMTYPES + 1;
 
 type  tLuaCodec     = class(tObject)
       private

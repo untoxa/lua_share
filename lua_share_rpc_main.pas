@@ -5,7 +5,7 @@ unit lua_share_rpc_main;
 interface
 
 uses  windows, sysutils, math,
-      LuaLib53, LuaHelpers,
+      LuaLib54, LuaHelpers,
       lua_buffers, mmf_ipc;
 
 const transmission_buffer_size = 512 * 1024; // 512K
@@ -15,7 +15,7 @@ const global_mutex_name  = '{F58C5448-FB40-4808-9128-D0BC99705E1E}';
 
 const package_name       = 'lua_share_rpc';
 
-const lua_supported_libs : array[0..0] of pAnsiChar = ('Lua53.dll');
+const lua_supported_libs : array[0..0] of pAnsiChar = ('Lua54.dll');
 
 type  tLuaRPCServer      = class;
 

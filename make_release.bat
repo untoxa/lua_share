@@ -11,8 +11,8 @@ IF NOT DEFINED RELEASE_ROOT (set RELEASE_ROOT=%PROJECT_ROOT%\release\)
 @mkdir %RELEASE_ROOT%\examples >nul
 @rem @mkdir %RELEASE_ROOT%\quik7 >nul
 @rem @mkdir %RELEASE_ROOT%\quik7\scripts >nul
-@mkdir %RELEASE_ROOT%\quik8.5 >nul
-@mkdir %RELEASE_ROOT%\quik8.5\scripts >nul
+@mkdir %RELEASE_ROOT%\quik9.3 >nul
+@mkdir %RELEASE_ROOT%\quik9.3\scripts >nul
 
 @copy /b /y %PROJECT_ROOT%\lua\*_test_share_*.lua %RELEASE_ROOT%\examples\
 @copy /b /y %PROJECT_ROOT%\readme.md %RELEASE_ROOT%
@@ -21,12 +21,12 @@ IF NOT DEFINED RELEASE_ROOT (set RELEASE_ROOT=%PROJECT_ROOT%\release\)
 @rem @copy /b /y %PROJECT_ROOT%\lua\lua_share_server.lua  %RELEASE_ROOT%\quik7\
 @rem @copy /b /y %PROJECT_ROOT%\lua\lua_share_boot.lua %RELEASE_ROOT%\quik7\scripts\
 
-@copy /b /y %PROJECT_ROOT%\lua\lua_share_server.lua  %RELEASE_ROOT%\quik8.5\
-@copy /b /y %PROJECT_ROOT%\lua\lua_share_boot.lua %RELEASE_ROOT%\quik8.5\scripts\
+@copy /b /y %PROJECT_ROOT%\lua\lua_share_server.lua  %RELEASE_ROOT%\quik9.3\
+@copy /b /y %PROJECT_ROOT%\lua\lua_share_boot.lua %RELEASE_ROOT%\quik9.3\scripts\
 
-@copy /b /y %PROJECT_ROOT%\exe\x64\lua_share_server.exe %RELEASE_ROOT%\quik8.5\
-@copy /b /y %PROJECT_ROOT%\exe\x64\lua_share.dll %RELEASE_ROOT%\quik8.5\scripts\
-@copy /b /y %PROJECT_ROOT%\exe\x64\lua_share_rpc.dll %RELEASE_ROOT%\quik8.5\scripts\
+@copy /b /y %PROJECT_ROOT%\exe\x64\lua_share_server.exe %RELEASE_ROOT%\quik9.3\
+@copy /b /y %PROJECT_ROOT%\exe\x64\lua_share.dll %RELEASE_ROOT%\quik9.3\scripts\
+@copy /b /y %PROJECT_ROOT%\exe\x64\lua_share_rpc.dll %RELEASE_ROOT%\quik9.3\scripts\
 
 @rem @copy /b /y %PROJECT_ROOT%\exe\x86\lua_share_server.exe %RELEASE_ROOT%\quik7\
 @rem @copy /b /y %PROJECT_ROOT%\exe\x86\lua_share.dll %RELEASE_ROOT%\quik7\scripts\

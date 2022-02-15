@@ -3,7 +3,7 @@
 library lua_share;
 
 uses  windows, sysutils,
-      LuaLib53,
+      LuaLib54,
       lua_share_main;
 
 {$R *.res}

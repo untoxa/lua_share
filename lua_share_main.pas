@@ -5,7 +5,7 @@ unit lua_share_main;
 interface
 
 uses  windows, classes, sysutils, math,
-      LuaLib53, LuaHelpers,
+      LuaLib54, LuaHelpers,
       lua_buffers, mmf_ipc;
 
 const transmission_buffer_size = 512 * 1024; // 512K
@@ -24,7 +24,7 @@ const package_name       = 'share';
       def_msgbox_title   = 'Lua_share';
       msgbox_err_title   = 'Lua_share ERROR';
 
-const lua_supported_libs : array[0..0] of pAnsiChar = ('Lua53.dll');
+const lua_supported_libs : array[0..0] of pAnsiChar = ('Lua54.dll');
 
 type  tLuaShare          = class(TLuaClass)
       private

@@ -3,7 +3,7 @@ unit LuaHelpers;
 interface
 
 uses  windows, classes, sysutils,
-      LuaLib53;
+      LuaLib54;
 
 const LUA_TANY           = LUA_TNONE;
 
@@ -664,7 +664,7 @@ begin result:= CallSafe(AName, aargs, AResCount, error, LUA_TANY); end;
 function TLuaContext.ExecuteSafe(const AScript: ansistring; AResCount: integer; var error: ansistring): boolean;
 var len: size_t;
 begin
-  result:= (luaL_loadstring(fLuaState, pAnsiChar(AScript)) = 0);
+  result:= (luaL_loadbuffer(fLuaState, pAnsiChar(AScript), length(AScript), pAnsiChar(AScript)) = 0);
   if result then begin
     result:= (lua_pcall(fLuaState, 0, AResCount, 0) = 0);
     if not result then begin

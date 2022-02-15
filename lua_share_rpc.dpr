@@ -3,7 +3,7 @@
 library lua_share_rpc;
 
 uses  windows, sysutils,
-      LuaLib53,
+      LuaLib54,
       lua_share_rpc_main;
 
 {$R *.res}

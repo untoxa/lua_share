@@ -3,11 +3,11 @@
 program lua_share_server;
 
 uses  windows, classes, sysutils,
-      LuaLib53, LuaHelpers;
+      LuaLib54, LuaHelpers;
 
 const platform_string = {$ifdef CPUX64} 'x64' {$else} 'x86' {$endif};
 
-const lua_lib_name    = 'lua53.dll';
+const lua_lib_name    = 'lua54.dll';
 
 type  tRunnerThread = class;
 

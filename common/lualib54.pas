@@ -1,5 +1,4 @@
 {*
-** $Id: lua.h,v 1.325 2014/12/26 17:24:27 roberto Exp $
 ** Lua - A Scripting Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -11,7 +10,7 @@
   {$define MSWINDOWS}
 {$endif}
 
-unit lualib53;
+unit lualib54;
 
 interface
 
@@ -36,7 +35,7 @@ uses windows;
 
 
 const
-  LUA_LIBRARY = 'lua53.dll'; {Do not Localize}
+  LUA_LIBRARY = 'lua54.dll'; {Do not Localize}
 
 {*
 ** luaconf.h
@@ -49,13 +48,14 @@ const
 ** lua.h
 *}
   LUA_VERSION_MAJOR   = '5';
-  LUA_VERSION_MINOR   = '3';
-  LUA_VERSION_NUM     = 503;
-  LUA_VERSION_RELEASE = '0';
+  LUA_VERSION_MINOR   = '4';
+  LUA_VERSION_NUM     = 504;
+  LUA_VERSION_RELEASE = '4';
+  LUA_VERSION_RELEASE_NUM = LUA_VERSION_NUM * 100 + 4;
 
   LUA_VERSION_    = 'Lua ' + LUA_VERSION_MAJOR + '.' + LUA_VERSION_MINOR;
   LUA_RELEASE     = LUA_VERSION_ + '.' + LUA_VERSION_RELEASE;
-  LUA_COPYRIGHT   = LUA_RELEASE + '  Copyright (C) 1994-2015 Lua.org, PUC-Rio';
+  LUA_COPYRIGHT   = LUA_RELEASE + '  Copyright (C) 1994-2022 Lua.org, PUC-Rio';
   LUA_AUTHORS	  = 'R. Ierusalimschy, L. H. de Figueiredo, W. Celes';
 
 
@@ -77,8 +77,7 @@ const
   LUA_ERRRUN     = 2;
   LUA_ERRSYNTAX	 = 3;
   LUA_ERRMEM	 = 4;
-  LUA_ERRGCMM	 = 5;
-  LUA_ERRERR	 = 6;
+  LUA_ERRERR	 = 5;
 
 {*
 ** basic types
@@ -95,7 +94,7 @@ const
   LUA_TUSERDATA	     = 7;
   LUA_TTHREAD	     = 8;
 
-  LUA_NUMTAGS	     = 9;
+  LUA_NUMTYPES	     = 9;
 
 
 {* minimum Lua stack available to a C function *}
@@ -143,6 +142,9 @@ const
   LUA_GCSETPAUSE   = 6;
   LUA_GCSETSTEPMUL = 7;
   LUA_GCISRUNNING  = 9;
+  LUA_GCGEN	   = 10;
+  LUA_GCINC	   = 11;
+
 
 {*
 ** Event codes
@@ -242,6 +244,13 @@ type
 
 
 {*
+** Type for warning functions
+*}
+  lua_WarnFunction = procedure(ud: Pointer; const msg: pansichar; tocont: Integer); cdecl;
+
+
+
+{*
 ** generic extra include file
 *}
 {#if defined(LUA_USER_H)
@@ -260,6 +269,7 @@ type
     namewhat: pansichar;       (* (n) `global', `local', `field', `method' *)
     what: pansichar;           (* (S) `Lua', `C', `main', `tail'*)
     source: pansichar;         (* (S) *)
+    srclen: size_t;	       (* (S) *)
     currentline: Integer;      (* (l) *)
     linedefined: Integer;      (* (S) *)
     lastlinedefined: Integer;  (* (S) *)
@@ -267,6 +277,8 @@ type
     nparams: Byte;             (* (u) number of parameters *)
     isvararg: ByteBool;        (* (u) *)
     istailcall: ByteBool;      (* (t) *)
+    ftransfer: Word;           (* (r) index of first value transferred *)
+    ntransfer: Word;           (* (r) number of transferred values *)
     short_src: array[0..LUA_IDSIZE - 1] of ansichar; (* (S) *)
     (* private part *)
     i_ci: Pointer;             (* active function *)  // ptr to struct CallInfo
@@ -313,8 +325,13 @@ var
   lua_newstate: function(f: lua_Alloc; ud: Pointer): lua_State; cdecl;
   lua_close: procedure (L: lua_State); cdecl;
   lua_newthread: function(L: lua_State): lua_State; cdecl;
+  lua_resetthread: function(L: lua_State): Integer; cdecl;
+
   lua_atpanic: function(L: lua_State; panicf: lua_CFunction): lua_CFunction; cdecl;
-  lua_version: function(L: lua_State): plua_Number; cdecl;
+
+
+  lua_version: function(L: lua_State): lua_Number; cdecl;
+
 
 {*
 ** basic stack manipulation
@@ -343,7 +360,7 @@ var
   lua_tointegerx: function(L: lua_State; idx: Integer; var isnum: LongBool): lua_Integer; cdecl;
   lua_toboolean: function(L: lua_State; idx: Integer): longbool; cdecl;
   lua_tolstring: function(L: lua_State; idx: Integer; var len: size_t): pansichar; cdecl;
-  lua_rawlen: function(L: lua_State; idx: Integer): size_t; cdecl;
+  lua_rawlen: function(L: lua_State; idx: Integer): lua_Unsigned; cdecl;
   lua_tocfunction: function(L: lua_State; idx: Integer): lua_CFunction; cdecl;
   lua_touserdata: function(L: lua_State; idx: Integer): Pointer; cdecl;
   lua_tothread: function(L: lua_State; idx: Integer): lua_State; cdecl;
@@ -383,9 +400,9 @@ var
   lua_rawgetp: function(L: lua_State; idx: Integer; p: Pointer): Integer; cdecl;
 
   lua_createtable: procedure(L: lua_State; narr: Integer; nrec: Integer); cdecl;
-  lua_newuserdata: function(L: lua_State; sz: size_t): Pointer; cdecl;
+  lua_newuserdatauv: function(L: lua_State; sz: size_t; nuvalue: Integer): Pointer; cdecl;
   lua_getmetatable: function(L: lua_State; objindex: Integer): Integer; cdecl;
-  lua_getuservalue: function(L: lua_State; idx: Integer): Integer; cdecl;
+  lua_getiuservalue: function(L: lua_State; idx: Integer; n: Integer): Integer; cdecl;
 
 {*
 ** set functions (stack -> Lua)
@@ -398,7 +415,7 @@ var
   lua_rawseti: procedure(L: lua_State; idx: Integer; n: lua_Integer); cdecl;
   lua_rawsetp: procedure(L: lua_State; idx: Integer; p: Pointer); cdecl;
   lua_setmetatable: function(L: lua_State; objindex: Integer): Integer; cdecl;
-  lua_setuservalue: procedure(L: lua_State; idx: Integer); cdecl;
+  lua_setiuservalue: function(L: lua_State; idx: Integer; n: Integer): Integer; cdecl;
 
 {*
 ** 'load' and 'call' functions (load and run Lua code)
@@ -417,9 +434,17 @@ var
 ** coroutine functions
 *}
   lua_yieldk: function(L: lua_State; nresults: Integer; ctx: lua_KContext; k: lua_KFunction): Integer; cdecl;
-  lua_resume: function(L: lua_State; from: lua_State; narg: Integer): Integer; cdecl;
+  lua_resume: function(L: lua_State; from: lua_State; narg: Integer; var nres: Integer): Integer; cdecl;
   lua_status: function(L: lua_State): Integer; cdecl;
   lua_isyieldable: function(L: lua_State): Integer; cdecl;
+
+
+{*
+** Warning-related functions
+*}
+  lua_setwarnf: procedure(L: lua_State; f: lua_WarnFunction; ud: Pointer) cdecl;
+  lua_warning: procedure(L: lua_State; const msg: pansichar; tocont: Integer) cdecl;
+
 
 {*
 ** garbage-collection function and options
@@ -440,6 +465,10 @@ var
   lua_getallocf: function(L: lua_State; var ud: Pointer): lua_Alloc; cdecl;
   lua_setallocf: procedure(L: lua_State; f: lua_Alloc; ud: Pointer); cdecl;
 
+
+  lua_toclose: procedure(L: lua_State; idx: Integer) cdecl;
+  lua_closeslot: procedure(L: lua_State; idx: Integer) cdecl;
+
 {*
 ** ======================================================================
 ** Debug API
@@ -458,6 +487,7 @@ var
   lua_gethookmask: function(L: lua_State): Integer; cdecl;
   lua_gethookcount: function(L: lua_State): Integer; cdecl;
 
+  lua_setcstacklimit: function(L: lua_State; limit: Cardinal): Integer;
 {*
 ** ======================================================================
 ** lualib.h
@@ -470,7 +500,6 @@ var
   luaopen_os: function(L: lua_State): Integer; cdecl;
   luaopen_string: function(L: lua_State): Integer; cdecl;
   luaopen_utf8: function(L: lua_State): Integer; cdecl;
-  luaopen_bit32: function(L: lua_State): Integer; cdecl;
   luaopen_math: function(L: lua_State): Integer; cdecl;
   luaopen_debug: function(L: lua_State): Integer; cdecl;
   luaopen_package: function(L: lua_State): Integer; cdecl;
@@ -483,7 +512,6 @@ var
 ** lauxlib.h
 ** ======================================================================
 *}
-  luaL_checkversion_: procedure(L: lua_State; ver: lua_Number; sz: size_t); cdecl;
   luaL_getmetafield: function(L: lua_State; obj: Integer; e: pansichar): Integer; cdecl;
   luaL_callmeta: function(L: lua_State; obj: Integer; e: pansichar): Integer; cdecl;
   luaL_tolstring: function(L: lua_State; idx: Integer; var len: size_t): pansichar; cdecl;
@@ -518,7 +546,6 @@ var
 
   luaL_loadbufferx: function(L: lua_State; const buff: pansichar; sz: size_t;
                                    const name: pansichar; const mode: pansichar): Integer; cdecl;
-  luaL_loadstring: function(L: lua_State; const s: pansichar): Integer; cdecl;
 
   luaL_newstate: function(): lua_State; cdecl;
   luaL_len: function(L: lua_State; idx: Integer): lua_Integer; cdecl;
@@ -648,7 +675,6 @@ procedure lua_call(L: lua_State; nargs: Integer; nresults: Integer);
 function lua_pcall(L: lua_State; nargs: Integer; nresults: Integer; errfunc: Integer): Integer;
 function lua_yield(L: lua_State; nresults: Integer): Integer;
 function lua_upvalueindex(i: Integer): Integer;
-procedure luaL_checkversion(L: lua_State);
 function lual_loadfile(L: lua_State; const filename: pansichar): Integer;
 function luaL_prepbuffer(B: Plual_buffer): pansichar;
 
@@ -687,6 +713,14 @@ function luaL_prepbuffer(B: Plual_buffer): pansichar;
 #define lua_tounsigned(L,i)	lua_tounsignedx(L,(i),NULL)
 
 #endif
+
+
+#define lua_newuserdata(L,s)	lua_newuserdatauv(L,s,1)
+#define lua_getuservalue(L,idx)	lua_getiuservalue(L,idx,1)
+#define lua_setuservalue(L,idx)	lua_setiuservalue(L,idx,1)
+
+#define LUA_NUMTAGS		LUA_NUMTYPES
+
 * ============================================================== *}
 
 {* ====================================================================== *}
@@ -845,7 +879,7 @@ end;
 
 function luaL_dostring(L: lua_State; const s: pansichar): Integer;
 begin
-   Result := luaL_loadstring(L, s);
+   Result := luaL_loadbuffer(L, s, strlen(s), s);
    if Result = 0 then
       Result := lua_pcall(L, 0, LUA_MULTRET, 0);
 end;
@@ -856,9 +890,6 @@ begin lua_getfield(L, LUA_REGISTRYINDEX, n); end;
 function luaL_loadbuffer(L: lua_State; const s: pansichar; sz: size_t; const n: pansichar): Integer;
 begin Result := luaL_loadbufferx(L, s, sz, n, NIL); end;
 
-
-procedure luaL_checkversion(L: lua_State);
-begin luaL_checkversion_(L, LUA_VERSION_NUM, LUAL_NUMSIZES); end;
 
 function lual_loadfile(L: lua_State; const filename: pansichar): Integer;
 begin Result := luaL_loadfilex(L, filename, NIL); end;
@@ -896,6 +927,7 @@ begin
   lua_newstate := GetProcAddr(ALibHandle, 'lua_newstate');
   lua_close := GetProcAddr(ALibHandle, 'lua_close');
   lua_newthread := GetProcAddr(ALibHandle, 'lua_newthread');
+  lua_resetthread := GetProcAddr(ALibHandle, 'lua_resetthread');
   lua_atpanic := GetProcAddr(ALibHandle, 'lua_atpanic');
   lua_version := GetProcAddr(ALibHandle, 'lua_version');
 
@@ -951,9 +983,9 @@ begin
   lua_rawgetp := GetProcAddr(ALibHandle, 'lua_rawgetp');
 
   lua_createtable := GetProcAddr(ALibHandle, 'lua_createtable');
-  lua_newuserdata := GetProcAddr(ALibHandle, 'lua_newuserdata');
+  lua_newuserdatauv := GetProcAddr(ALibHandle, 'lua_newuserdatauv');
   lua_getmetatable := GetProcAddr(ALibHandle, 'lua_getmetatable');
-  lua_getuservalue := GetProcAddr(ALibHandle, 'lua_getuservalue');
+  lua_getiuservalue := GetProcAddr(ALibHandle, 'lua_getiuservalue');
 
   lua_setglobal := GetProcAddr(ALibHandle, 'lua_setglobal');
   lua_settable := GetProcAddr(ALibHandle, 'lua_settable');
@@ -963,7 +995,7 @@ begin
   lua_rawseti := GetProcAddr(ALibHandle, 'lua_rawseti');
   lua_rawsetp := GetProcAddr(ALibHandle, 'lua_rawsetp');
   lua_setmetatable := GetProcAddr(ALibHandle, 'lua_setmetatable');
-  lua_setuservalue := GetProcAddr(ALibHandle, 'lua_setuservalue');
+  lua_setiuservalue := GetProcAddr(ALibHandle, 'lua_setiuservalue');
 
   lua_callk := GetProcAddr(ALibHandle, 'lua_callk');
   lua_pcallk := GetProcAddr(ALibHandle, 'lua_pcallk');
@@ -975,6 +1007,9 @@ begin
   lua_status := GetProcAddr(ALibHandle, 'lua_status');
   lua_isyieldable := GetProcAddr(ALibHandle, 'lua_isyieldable');
 
+  lua_setwarnf := GetProcAddr(ALibHandle, 'lua_setwarnf');
+  lua_warning := GetProcAddr(ALibHandle, 'lua_warning');
+
   lua_gc := GetProcAddr(ALibHandle, 'lua_gc');
 
   lua_error := GetProcAddr(ALibHandle, 'lua_error');
@@ -985,6 +1020,9 @@ begin
   lua_stringtonumber := GetProcAddr(ALibHandle, 'lua_stringtonumber');
   lua_getallocf := GetProcAddr(ALibHandle, 'lua_getallocf');
   lua_setallocf := GetProcAddr(ALibHandle, 'lua_setallocf');
+
+  lua_toclose:= GetProcAddr(ALibHandle, 'lua_toclose');
+  lua_closeslot:= GetProcAddress(ALibHandle, 'lua_closeslot');
 
   lua_getstack := GetProcAddr(ALibHandle, 'lua_getstack');
   lua_getinfo := GetProcAddr(ALibHandle, 'lua_getinfo');
@@ -1000,6 +1038,8 @@ begin
   lua_gethookmask := GetProcAddr(ALibHandle, 'lua_gethookmask');
   lua_gethookcount := GetProcAddr(ALibHandle, 'lua_gethookcount');
 
+  lua_setcstacklimit:= GetProcAddr(ALibHandle, 'lua_setcstacklimit');
+
   luaopen_base := GetProcAddr(ALibHandle, 'luaopen_base');
   luaopen_coroutine := GetProcAddr(ALibHandle, 'luaopen_coroutine');
   luaopen_table := GetProcAddr(ALibHandle, 'luaopen_table');
@@ -1007,14 +1047,12 @@ begin
   luaopen_os := GetProcAddr(ALibHandle, 'luaopen_os');
   luaopen_string := GetProcAddr(ALibHandle, 'luaopen_string');
   luaopen_utf8 := GetProcAddr(ALibHandle, 'luaopen_utf8');
-  luaopen_bit32 := GetProcAddr(ALibHandle, 'luaopen_bit32');
   luaopen_math := GetProcAddr(ALibHandle, 'luaopen_math');
   luaopen_debug := GetProcAddr(ALibHandle, 'luaopen_debug');
   luaopen_package := GetProcAddr(ALibHandle, 'luaopen_package');
 
   luaL_openlibs := GetProcAddr(ALibHandle, 'luaL_openlibs');
 
-  luaL_checkversion_ := GetProcAddr(ALibHandle, 'luaL_checkversion_');
   luaL_getmetafield := GetProcAddr(ALibHandle, 'luaL_getmetafield');
   luaL_callmeta := GetProcAddr(ALibHandle, 'luaL_callmeta');
   luaL_tolstring := GetProcAddr(ALibHandle, 'luaL_tolstring');
@@ -1047,7 +1085,6 @@ begin
 
   luaL_loadfilex := GetProcAddr(ALibHandle, 'luaL_loadfilex');
   luaL_loadbufferx := GetProcAddr(ALibHandle, 'luaL_loadbufferx');
-  luaL_loadstring := GetProcAddr(ALibHandle, 'luaL_loadstring');
   luaL_newstate := GetProcAddr(ALibHandle, 'luaL_newstate');
   luaL_len := GetProcAddr(ALibHandle, 'luaL_len');
 
@@ -1076,6 +1113,7 @@ begin
   lua_newstate := nil;
   lua_close := nil;
   lua_newthread := nil;
+  lua_resetthread := nil;
   lua_atpanic := nil;
   lua_version := nil;
 
@@ -1113,7 +1151,7 @@ begin
   lua_pushnil := nil;          
   lua_pushnumber := nil;       
   lua_pushinteger := nil;      
-  lua_pushlstring := nil;      
+  lua_pushlstring := nil;
   lua_pushstring := nil;       
   lua_pushvfstring := nil;     
   lua_pushfstring := nil;      
@@ -1131,9 +1169,9 @@ begin
   lua_rawgetp := nil;          
 
   lua_createtable := nil;      
-  lua_newuserdata := nil;      
-  lua_getmetatable := nil;     
-  lua_getuservalue := nil;     
+  lua_newuserdatauv := nil;      
+  lua_getmetatable := nil;
+  lua_getiuservalue := nil;     
 
   lua_setglobal := nil;
   lua_settable := nil;         
@@ -1143,19 +1181,22 @@ begin
   lua_rawseti := nil;          
   lua_rawsetp := nil;          
   lua_setmetatable := nil;     
-  lua_setuservalue := nil;     
+  lua_setiuservalue := nil;     
 
   lua_callk := nil;
   lua_pcallk := nil;           
-  lua_load := nil;             
+  lua_load := nil;
   lua_dump := nil;             
 
-  lua_yieldk := nil;           
-  lua_resume := nil;           
-  lua_status := nil;           
-  lua_isyieldable := nil;      
+  lua_yieldk := nil;
+  lua_resume := nil;
+  lua_status := nil;
+  lua_isyieldable := nil;
 
-  lua_gc := nil;               
+  lua_setwarnf := nil;
+  lua_warning := nil;
+
+  lua_gc := nil;
 
   lua_error := nil;            
   lua_next := nil;             
@@ -1166,7 +1207,10 @@ begin
   lua_getallocf := nil;        
   lua_setallocf := nil;        
 
-  lua_getstack := nil;         
+  lua_toclose:= nil;
+  lua_closeslot:= nil;
+
+  lua_getstack := nil;
   lua_getinfo := nil;          
   lua_getlocal := nil;         
   lua_setlocal := nil;         
@@ -1178,23 +1222,23 @@ begin
   lua_sethook := nil;          
   lua_gethook := nil;
   lua_gethookmask := nil;      
-  lua_gethookcount := nil;     
+  lua_gethookcount := nil;
+
+  lua_setcstacklimit:= nil;
 
   luaopen_base := nil;         
   luaopen_coroutine := nil;    
   luaopen_table := nil;        
   luaopen_io := nil;
   luaopen_os := nil;           
-  luaopen_string := nil;       
+  luaopen_string := nil;
   luaopen_utf8 := nil;         
-  luaopen_bit32 := nil;        
   luaopen_math := nil;         
-  luaopen_debug := nil;        
+  luaopen_debug := nil;
   luaopen_package := nil;      
 
   luaL_openlibs := nil;        
 
-  luaL_checkversion_ := nil;   
   luaL_getmetafield := nil;    
   luaL_callmeta := nil;        
   luaL_tolstring := nil;       
@@ -1223,11 +1267,10 @@ begin
   luaL_execresult := nil;      
 
   luaL_ref := nil;             
-  luaL_unref := nil;           
+  luaL_unref := nil;
 
   luaL_loadfilex := nil;       
   luaL_loadbufferx := nil;     
-  luaL_loadstring := nil;      
   luaL_newstate := nil;        
   luaL_len := nil;             
 

@@ -355,7 +355,7 @@ end
 function table.load(fname)
     local f, err = io.open(fname, "r")
     if f == nil then return {} end
-    local fn, err = loadstring("return "..f:read("*a"))
+    local fn, err = load("return "..f:read("*a"))
     f:close()
     if type(fn) == "function" then
         local succ, res = pcall(fn)
