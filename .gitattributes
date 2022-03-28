@@ -1,0 +1,3 @@
+*.pas	working-tree-encoding=CP1251	eol=CRLF
+*.dpr	working-tree-encoding=CP1251	eol=CRLF
+*.lua	working-tree-encoding=CP1251	eol=CRLF
